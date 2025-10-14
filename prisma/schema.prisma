@@ -1,0 +1,171 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      String   // "student", "officer", "admin"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  student        Student?
+  officer        Officer?
+  admin          Admin?
+  notifications  Notification[]
+}
+
+model Student {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matricNumber    String   @unique
+  firstName       String
+  lastName        String
+  department      String
+  faculty         String
+  level           String
+  phoneNumber     String?
+  address         String?
+  dateOfBirth     DateTime?
+  gender          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  clearanceProgress ClearanceProgress[]
+  studentID         StudentID?
+  nyscForm          NYSCForm?
+  documents         Document[]
+}
+
+model Officer {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  departmentId    Int
+  department      Department @relation(fields: [departmentId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  clearanceApprovals ClearanceProgress[]
+}
+
+model Admin {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Department {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  description     String?
+  contactEmail    String?
+  contactPhone    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  officers        Officer[]
+  clearanceSteps  ClearanceStep[]
+}
+
+model ClearanceStep {
+  id              Int      @id @default(autoincrement())
+  stepNumber      Int      @unique
+  name            String
+  description     String?
+  departmentId    Int
+  department      Department @relation(fields: [departmentId], references: [id])
+  requiresPayment Boolean   @default(false)
+  paymentAmount   Decimal?  @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  clearanceProgress ClearanceProgress[]
+}
+
+model ClearanceProgress {
+  id              Int      @id @default(autoincrement())
+  studentId       Int
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  stepId          Int
+  step            ClearanceStep @relation(fields: [stepId], references: [id])
+  status          String   @default("pending") // pending, approved, rejected
+  officerId       Int?
+  officer         Officer? @relation(fields: [officerId], references: [id])
+  comment         String?  @db.Text
+  documentUrl     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([studentId, stepId])
+}
+
+model StudentID {
+  id              Int      @id @default(autoincrement())
+  studentId       Int      @unique
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  cardNumber      String   @unique
+  qrCode          String
+  imageUrl        String
+  issuedDate      DateTime @default(now())
+  expiryDate      DateTime
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model NYSCForm {
+  id              Int      @id @default(autoincrement())
+  studentId       Int      @unique
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  formNumber      String   @unique
+  formUrl         String
+  generatedDate   DateTime @default(now())
+  status          String   @default("generated") // generated, verified, submitted
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Document {
+  id              Int      @id @default(autoincrement())
+  studentId       Int
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fileName        String
+  fileUrl         String
+  fileType        String
+  fileSize        Int
+  documentType    String   // transcript, receipt, certificate, etc.
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Notification {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  message         String   @db.Text
+  isRead          Boolean  @default(false)
+  type            String   @default("info") // info, success, warning, error
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
