@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/db';
+import { collections } from '@/lib/mongoCollections';
 import { getSession, requireRole } from '@/lib/auth';
 
 // Get student clearance status
@@ -10,39 +11,19 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    // Get student details
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      include: {
-        student: true
-      }
-    });
-
-    if (!user?.student) {
-      return NextResponse.json({ error: 'Student profile not found' }, { status: 404 });
-    }
-
-    // Get all clearance steps
-    const steps = await prisma.clearanceStep.findMany({
-      orderBy: { stepNumber: 'asc' }
-    });
-
-    // Get student's clearance progress
-    const progress = await prisma.clearanceProgress.findMany({
-      where: { studentId: user.student.id },
-      include: {
-        step: true,
-        officer: true
-      }
-    });
+    // MongoDB variant for development
+    const { students, steps: stepsCol, progress: progressCol } = await collections()
+    const student = await students.findOne({ userId: session.userId })
+    if (!student) return NextResponse.json({ error: 'Student profile not found' }, { status: 404 })
+    const steps = await stepsCol.find({}).sort({ stepNumber: 1 }).toArray()
+    const progress = await progressCol.find({ studentId: student._id }).toArray()
 
     // Map steps with progress
     const clearanceStatus = steps.map(step => {
-      const stepProgress = progress.find(p => p.stepId === step.id);
+      const stepProgress = progress.find((p: any) => String(p.stepId) === String(step._id));
       return {
         step: {
-          id: step.id,
+          id: String(step._id),
           name: step.name,
           stepNumber: step.stepNumber,
           requiresPayment: step.requiresPayment,
@@ -51,24 +32,24 @@ export async function GET(request: NextRequest) {
         status: stepProgress?.status || 'pending',
         updatedAt: stepProgress?.updatedAt || null,
         comment: stepProgress?.comment || null,
-        officerName: stepProgress?.officer?.name || null
+        officerName: null
       };
     });
 
     // Calculate overall progress
     const totalSteps = steps.length;
-    const completedSteps = progress.filter(p => p.status === 'approved').length;
+    const completedSteps = progress.filter((p: any) => p.status === 'approved').length;
     const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
     const isCompleted = totalSteps > 0 && completedSteps === totalSteps;
 
     return NextResponse.json({
       student: {
-        id: user.student.id,
-        name: `${user.student.firstName} ${user.student.lastName}`,
-        matricNumber: user.student.matricNumber,
-        department: user.student.department,
-        faculty: user.student.faculty,
-        level: user.student.level
+        id: String(student._id),
+        name: `${student.firstName} ${student.lastName}`,
+        matricNumber: student.matricNumber,
+        department: student.department,
+        faculty: student.faculty,
+        level: student.level
       },
       clearance: {
         steps: clearanceStatus,
@@ -94,13 +75,11 @@ export async function POST(request: NextRequest) {
     
     // Get student details
     const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      include: {
-        student: true
-      }
+      where: { id: String(session.userId) },
+      include: { student: true }
     });
 
-    if (!user?.student) {
+    if (!user || !('student' in user) || !user.student) {
       return NextResponse.json({ error: 'Student profile not found' }, { status: 404 });
     }
 
@@ -115,7 +94,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingProgress) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Clearance process already initialized',
         message: 'Your clearance process has already been started'
       }, { status: 400 });
@@ -123,10 +102,10 @@ export async function POST(request: NextRequest) {
 
     // Initialize clearance progress for all steps
     await prisma.$transaction(
-      steps.map(step => 
+      steps.map((step: any) =>
         prisma.clearanceProgress.create({
           data: {
-            studentId: user.student.id,
+            studentId: user.student?.id as any,
             stepId: step.id,
             status: 'pending'
           }
@@ -143,15 +122,15 @@ export async function POST(request: NextRequest) {
       const cardNumber = `EKSU-${user.student.matricNumber}-${new Date().getFullYear()}`;
       const qrCode = `https://eksu-clearance.vercel.app/verify/${cardNumber}`;
       const expiryDate = new Date();
-      expiryDate.setFullYear(expiryDate.getFullYear() + 4); // Valid for 4 years
-      
-      await prisma.student_id_cards.create({
+      expiryDate.setFullYear(expiryDate.getFullYear() + 4);
+
+      await prisma.studentID.create({
         data: {
-          student_id: user.student.id,
-          card_number: cardNumber,
-          qr_code: qrCode,
-          image_url: `/api/student/idcard/image/${user.student.id}`,
-          expiry_date: expiryDate
+          studentId: user.student.id,
+          cardNumber,
+          qrCode,
+          imageUrl: `/api/student/idcard/image/${user.student.id}`,
+          expiryDate
         }
       });
     }

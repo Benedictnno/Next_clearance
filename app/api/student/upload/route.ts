@@ -1,23 +1,21 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/db'
 import { getSession, requireRole } from '@/lib/auth'
 import { isStepCurrent } from '@/lib/helpers'
 import { saveUpload } from '@/lib/upload'
+import { collections } from '@/lib/mongoCollections'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: Request) {
 	try {
-		const session = requireRole('student')
+		const session = await requireRole('student')
 		const form = await (req as any).formData?.() ?? await req.formData()
-		const stepId = Number(form.get('step_id'))
 		const file = form.get('file') as File | null
 
-		if (!Number.isFinite(stepId) || stepId <= 0) {
-			return NextResponse.json({ error: 'Invalid step' }, { status: 400 })
-		}
+		const rawStepId = form.get('step_id');
+        const stepId = isNaN(Number(rawStepId)) ? Number(rawStepId) : Number(rawStepId);
 
-		const currentOk = await isStepCurrent(session.userId, stepId)
+		const currentOk = await isStepCurrent(session.userId, Number(stepId))
 		if (!currentOk) {
 			return NextResponse.json({ error: 'You can only submit the current step.' }, { status: 400 })
 		}
@@ -27,18 +25,14 @@ export async function POST(req: Request) {
 			relPath = await saveUpload(session.userId, stepId, file)
 		}
 
-		await prisma.clearanceProgress.update({
-			where: { 
-				studentId_stepId: { 
-					studentId: session.userId, 
-					stepId: stepId 
-				} 
-			},
-			data: { 
-				status: 'pending', 
-				updatedAt: new Date() 
-			},
-		})
+		const { students, progress: progressCol } = await collections()
+		const student = await students.findOne({ userId: session.userId })
+		if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+		await progressCol.updateOne(
+			{ studentId: student._id, stepId },
+			{ $set: { status: 'pending', updatedAt: new Date(), receiptUrl: relPath || null } },
+			{ upsert: true }
+		)
 
 		return NextResponse.json({ ok: true, file: relPath })
 	} catch (e: any) {

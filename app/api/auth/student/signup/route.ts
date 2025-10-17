@@ -63,10 +63,10 @@ export async function POST(req: Request) {
 			)
 		}
 
-		createSession({ userId: student.id, role: 'student' })
-		return NextResponse.json({ ok: true })
+		createSession({ userId: Number(student.id), role: 'student' });
+		return NextResponse.json({ ok: true });
 	} catch (e: any) {
-		return NextResponse.json({ error: e?.message || 'Signup failed' }, { status: 400 })
+		return NextResponse.json({ error: e?.message || 'Signup failed' }, { status: 400 });
 	}
 }
 

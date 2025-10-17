@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import { z } from 'zod'
+import { collections } from '@/lib/mongoCollections'
 
 const ActSchema = z.object({
 	studentId: z.number().int().positive(),
@@ -16,19 +16,11 @@ export async function POST(req: Request) {
 		const body = await req.json()
 		const input = ActSchema.parse(body)
 
-		await prisma.clearanceProgress.update({
-			where: { 
-				studentId_stepId: { 
-					studentId: input.studentId, 
-					stepId: input.stepId 
-				} 
-			},
-			data: {
-				status: input.action === 'approve' ? 'approved' : 'rejected',
-				comment: input.comment || '',
-				updatedAt: new Date(),
-			},
-		})
+		const { progress } = await collections()
+		await progress.updateOne(
+			{ studentId: input.studentId as any, stepId: input.stepId as any },
+			{ $set: { status: input.action === 'approve' ? 'approved' : 'rejected', comment: input.comment || '', updatedAt: new Date() } }
+		)
 
 		return NextResponse.json({ ok: true })
 	} catch (e: any) {

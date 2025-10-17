@@ -17,8 +17,12 @@ const SESSION_COOKIE = 'session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 const SALT_ROUNDS = 10;
 
+function devBypassEnabled(): boolean {
+  return process.env.DEV_AUTH_BYPASS === 'true';
+}
+
 function getSecret(): string {
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.SESSION_SECRET || (devBypassEnabled() ? 'devsecret' : '');
   if (!secret) throw new Error('SESSION_SECRET is not set');
   return secret;
 }
@@ -33,7 +37,7 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 
 export async function createSession(payload: SessionPayload): Promise<void> {
   const token = jwt.sign(payload, getSecret(), { expiresIn: SESSION_TTL_SECONDS });
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -44,7 +48,7 @@ export async function createSession(payload: SessionPayload): Promise<void> {
 }
 
 export async function destroySession(): Promise<void> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, '', {
     httpOnly: true,
     sameSite: 'lax',
@@ -55,7 +59,12 @@ export async function destroySession(): Promise<void> {
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
-  const cookieStore = cookies();
+  if (devBypassEnabled()) {
+    // Default dummy student session; override via DEV_ROLE if needed
+    const role = (process.env.DEV_ROLE as UserRole) || 'student';
+    return { userId: 1, role, name: 'Dev User', email: 'dev@example.com' };
+  }
+  const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
@@ -68,20 +77,22 @@ export async function getSession(): Promise<SessionPayload | null> {
 export async function requireAuth(role?: UserRole) {
   const session = await getSession();
   if (!session) {
+    if (devBypassEnabled()) {
+      return { userId: 1, role: (process.env.DEV_ROLE as UserRole) || 'student', name: 'Dev User', email: 'dev@example.com' };
+    }
     redirect('/login');
   }
-  
   if (role && session.role !== role) {
+    if (devBypassEnabled()) return session;
     if (session.role === 'student') redirect('/student/dashboard');
     if (session.role === 'officer') redirect('/officer/dashboard');
     if (session.role === 'admin') redirect('/admin/dashboard');
     redirect('/login');
   }
-  
   return session;
 }
 
-export async function getUserDetails(userId: number) {
+export async function getUserDetails(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
@@ -100,6 +111,9 @@ export async function getUserDetails(userId: number) {
 
 export async function requireRole(role: UserRole): Promise<SessionPayload> {
   const session = await getSession();
+  if (devBypassEnabled()) {
+    return session || { userId: 1, role, name: 'Dev User', email: 'dev@example.com' };
+  }
   if (!session || session.role !== role) {
     throw new Error('UNAUTHORIZED');
   }
@@ -131,11 +145,12 @@ export async function authenticateUser(email: string, password: string): Promise
   }
 
   return {
-    userId: user.id,
+    userId: Number(user.id),
     role: user.role as UserRole,
     name,
     email: user.email
   };
+
 }
 
 export async function registerUser(userData: {
@@ -155,7 +170,7 @@ export async function registerUser(userData: {
   
   const hashedPassword = await hashPassword(password);
   
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     const user = await tx.user.create({
       data: {
         email,

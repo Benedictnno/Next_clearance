@@ -1,23 +1,23 @@
 import prisma from './db';
 
-export async function notify(userType: 'student' | 'admin' | 'officer', userId: number, message: string) {
-  await prisma.notifications.create({
-    data: { user_type: userType, user_id: userId, message, created_at: new Date() },
+export async function notify(userId: string, title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
+  await prisma.notification.create({
+    data: { userId, title, message, type },
   });
 }
 
 export async function getStudentSteps(studentId: number) {
-  return prisma.student_clearance_progress.findMany({
-    where: { student_id: studentId },
-    include: { clearance_steps: true },
-    orderBy: { clearance_steps: { step_no: 'asc' } },
+  return prisma.clearanceProgress.findMany({
+    where: { studentId: String(studentId) },
+    include: { step: true },
+    orderBy: { step: { stepNumber: 'asc' } },
   });
 }
 
 export async function getUnlockedStepNo(studentId: number): Promise<number | null> {
   const rows = await getStudentSteps(studentId);
   for (const r of rows) {
-    if (r.status !== 'approved') return r.clearance_steps.step_no as unknown as number;
+    if (r.status !== 'approved') return r.step.stepNumber;
   }
   return null;
 }
@@ -26,7 +26,7 @@ export async function isStepCurrent(studentId: number, stepId: number): Promise<
   const rows = await getStudentSteps(studentId);
   for (const r of rows) {
     if (r.status !== 'approved') {
-      return r.step_id === stepId;
+      return r.stepId === String(stepId);
     }
   }
   return false;

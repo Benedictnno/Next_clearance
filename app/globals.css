@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
 :root {
+  /* Base neutrals */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
+
+  /* Brand palette */
+  --brand-900: #150E56; /* deep indigo */
+  --brand-700: #7B113A; /* maroon */
+  --brand-500: #1597BB; /* teal-blue */
+  --brand-300: #8FD6E1; /* light-teal */
+
+  --surface: #ffffff;
+  --muted: #6B7280;
+  --border: #E5E7EB;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-900: var(--brand-900);
+  --color-brand-700: var(--brand-700);
+  --color-brand-500: var(--brand-500);
+  --color-brand-300: var(--brand-300);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0B0F1A;
+    --foreground: #E5E7EB;
+    --surface: #0F172A;
+    --border: #1F2937;
   }
+}
+
+html, body {
+  height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/* Utility helpers */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.btn-primary {
+  background: var(--brand-500);
+  color: white;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.btn-primary:hover { filter: brightness(0.95); }
+
+.topbar {
+  background: linear-gradient(90deg, var(--brand-900), var(--brand-700));
+  color: white;
+}
+
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
 }

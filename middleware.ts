@@ -17,6 +17,10 @@ function getSession(req: NextRequest): { userId: number; role: 'student' | 'admi
 
 export function middleware(req: NextRequest) {
 	const { pathname } = req.nextUrl
+	// Bypass auth in dev when DEV_AUTH_BYPASS=true
+	if (process.env.DEV_AUTH_BYPASS === 'true') {
+		return NextResponse.next()
+	}
 	const session = getSession(req)
 
 	const isStudentArea = pathname.startsWith('/student')

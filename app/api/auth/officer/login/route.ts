@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 		const ok = await bcrypt.compare(input.password, user.password)
 		if (!ok) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
 
-		createSession({ userId: user.id, role: 'officer' })
+		await createSession({ userId: Number(user.id), role: 'officer' })
 		return NextResponse.json({ ok: true })
 	} catch (e: any) {
 		return NextResponse.json({ error: e?.message || 'Login failed' }, { status: 400 })

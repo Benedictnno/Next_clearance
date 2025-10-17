@@ -152,13 +152,21 @@ export async function GET(request: NextRequest) {
     
     // Save the PDF
     const pdfBytes = await pdfDoc.save();
-    
+
     // Return the PDF as a response
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${student.matricNumber}_ID_Card.pdf"`,
       },
+    });
+
+    return new NextResponse(Buffer.from(pdfBytes), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${student?.matricNumber}_ID_Card.pdf"`,
+      },
+    
     });
   } catch (error: any) {
     console.error('Error generating PDF:', error);

@@ -1,171 +1,194 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
 }
 
+// ===================
+// USER MODEL
+// ===================
 model User {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
   password  String
-  role      String   // "student", "officer", "admin"
+  role      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  student        Student?
-  officer        Officer?
-  admin          Admin?
-  notifications  Notification[]
+  student       Student?
+  officer       Officer?
+  admin         Admin?
+  notifications Notification[]
 }
 
+// ===================
+// STUDENT MODEL
+// ===================
 model Student {
-  id              Int      @id @default(autoincrement())
-  userId          Int      @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  matricNumber    String   @unique
-  firstName       String
-  lastName        String
-  department      String
-  faculty         String
-  level           String
-  phoneNumber     String?
-  address         String?
-  dateOfBirth     DateTime?
-  gender          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String    @unique @db.ObjectId
+  user         User      @relation(fields: [userId], references: [id])
+  matricNumber String    @unique
+  firstName    String
+  lastName     String
+  department   String
+  faculty      String
+  level        String
+  phoneNumber  String?
+  address      String?
+  dateOfBirth  DateTime?
+  gender       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  // Relations
   clearanceProgress ClearanceProgress[]
   studentID         StudentID?
   nyscForm          NYSCForm?
   documents         Document[]
 }
 
+// ===================
+// OFFICER MODEL
+// ===================
 model Officer {
-  id              Int      @id @default(autoincrement())
-  userId          Int      @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name            String
-  departmentId    Int
-  department      Department @relation(fields: [departmentId], references: [id])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String     @unique @db.ObjectId
+  user         User       @relation(fields: [userId], references: [id])
+  name         String
+  departmentId String     @db.ObjectId
+  department   Department @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
-  // Relations
   clearanceApprovals ClearanceProgress[]
 }
 
+// ===================
+// ADMIN MODEL
+// ===================
 model Admin {
-  id              Int      @id @default(autoincrement())
-  userId          Int      @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name            String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
+// ===================
+// DEPARTMENT MODEL
+// ===================
 model Department {
-  id              Int      @id @default(autoincrement())
-  name            String   @unique
-  description     String?
-  contactEmail    String?
-  contactPhone    String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String   @unique
+  description  String?
+  contactEmail String?
+  contactPhone String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  // Relations
-  officers        Officer[]
-  clearanceSteps  ClearanceStep[]
+  officers       Officer[]
+  clearanceSteps ClearanceStep[]
 }
 
+// ===================
+// CLEARANCE STEP MODEL
+// ===================
 model ClearanceStep {
-  id              Int      @id @default(autoincrement())
-  stepNumber      Int      @unique
+  id              String     @id @default(auto()) @map("_id") @db.ObjectId
+  stepNumber      Int
   name            String
   description     String?
-  departmentId    Int
+  departmentId    String     @db.ObjectId
   department      Department @relation(fields: [departmentId], references: [id])
-  requiresPayment Boolean   @default(false)
-  paymentAmount   Decimal?  @db.Decimal(10, 2)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  requiresPayment Boolean    @default(false)
+  paymentAmount   Float?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  // Relations
   clearanceProgress ClearanceProgress[]
 }
 
+// ===================
+// CLEARANCE PROGRESS MODEL
+// ===================
 model ClearanceProgress {
-  id              Int      @id @default(autoincrement())
-  studentId       Int
-  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  stepId          Int
-  step            ClearanceStep @relation(fields: [stepId], references: [id])
-  status          String   @default("pending") // pending, approved, rejected
-  officerId       Int?
-  officer         Officer? @relation(fields: [officerId], references: [id])
-  comment         String?  @db.Text
-  documentUrl     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@unique([studentId, stepId])
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  studentId   String        @db.ObjectId
+  student     Student       @relation(fields: [studentId], references: [id])
+  stepId      String        @db.ObjectId
+  step        ClearanceStep @relation(fields: [stepId], references: [id])
+  status      String        @default("pending")
+  officerId   String?       @db.ObjectId
+  officer     Officer?      @relation(fields: [officerId], references: [id])
+  comment     String?
+  documentUrl String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
+// ===================
+// STUDENT ID MODEL
+// ===================
 model StudentID {
-  id              Int      @id @default(autoincrement())
-  studentId       Int      @unique
-  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  cardNumber      String   @unique
-  qrCode          String
-  imageUrl        String
-  issuedDate      DateTime @default(now())
-  expiryDate      DateTime
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId  String   @unique @db.ObjectId
+  student    Student  @relation(fields: [studentId], references: [id])
+  cardNumber String   @unique
+  qrCode     String
+  imageUrl   String
+  issuedDate DateTime @default(now())
+  expiryDate DateTime
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
+// ===================
+// NYSC FORM MODEL
+// ===================
 model NYSCForm {
-  id              Int      @id @default(autoincrement())
-  studentId       Int      @unique
-  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  formNumber      String   @unique
-  formUrl         String
-  generatedDate   DateTime @default(now())
-  status          String   @default("generated") // generated, verified, submitted
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String   @unique @db.ObjectId
+  student       Student  @relation(fields: [studentId], references: [id])
+  formNumber    String   @unique
+  formUrl       String
+  generatedDate DateTime @default(now())
+  status        String   @default("generated")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
+// ===================
+// DOCUMENT MODEL
+// ===================
 model Document {
-  id              Int      @id @default(autoincrement())
-  studentId       Int
-  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  fileName        String
-  fileUrl         String
-  fileType        String
-  fileSize        Int
-  documentType    String   // transcript, receipt, certificate, etc.
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId    String   @db.ObjectId
+  student      Student  @relation(fields: [studentId], references: [id])
+  fileName     String
+  fileUrl      String
+  fileType     String
+  fileSize     Int
+  documentType String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
+// ===================
+// NOTIFICATION MODEL
+// ===================
 model Notification {
-  id              Int      @id @default(autoincrement())
-  userId          Int
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title           String
-  message         String   @db.Text
-  isRead          Boolean  @default(false)
-  type            String   @default("info") // info, success, warning, error
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String   @default("info")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -13,11 +13,14 @@ export default function Home() {
             A streamlined platform for managing student clearance processes efficiently and transparently.
           </p>
           <div className="mt-8 flex flex-wrap gap-4 justify-center">
-            <Link href="/signup" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#b91c1c] font-semibold rounded-md hover:bg-opacity-90 transition-all transform hover:-translate-y-1 hover:shadow-lg">
-              Get Started
+            <Link href="/student/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#b91c1c] font-semibold rounded-md hover:bg-opacity-90 transition-all transform hover:-translate-y-1 hover:shadow-lg">
+              Student Dashboard
             </Link>
-            <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-transparent border-2 border-white text-white font-semibold rounded-md hover:bg-white hover:text-[#b91c1c] transition-all transform hover:-translate-y-1 hover:shadow-lg">
-              Login
+            <Link href="/officer/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-transparent border-2 border-white text-white font-semibold rounded-md hover:bg-white hover:text-[#b91c1c] transition-all transform hover:-translate-y-1 hover:shadow-lg">
+              Officer Dashboard
+            </Link>
+            <Link href="/admin/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-transparent border-2 border-white text-white font-semibold rounded-md hover:bg-white hover:text-[#b91c1c] transition-all transform hover:-translate-y-1 hover:shadow-lg">
+              Admin Dashboard
             </Link>
           </div>
         </div>
