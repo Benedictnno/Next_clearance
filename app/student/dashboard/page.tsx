@@ -21,7 +21,7 @@ export default async function Dashboard() {
     : "http://localhost:3000";
 
 // const res = await fetch(`${baseUrl}/api/student/clearance`, { cache: "no-store" });
-const res = await fetch(`http://localhost:3000/api/student/clearance`, { cache: "no-store" });
+const res = await fetch(`https://eksu-clearance.vercel.app/api/student/clearance`, { cache: "no-store" });
 
 if (!res.ok) {
   console.error("❌ Failed to fetch clearance:", await res.text());
@@ -53,7 +53,7 @@ console.log("DEBUG JSON:", json);
                                 <StatusBadge status={s.status as StepStatus} />
 						</div>
                             {currentStepNumber === s.step.stepNumber && (
-                                <form className="mt-4" method="post" action="http://localhost:3000/api/student/upload" encType="multipart/form-data">
+                                <form className="mt-4" method="post" action="https://eksu-clearance.vercel.app/api/student/upload" encType="multipart/form-data">
                                     <input type="hidden" name="step_id" value={s.step.id} />
                                     <label className="block text-xs text-gray-600 mb-1">{s.step.requiresPayment ? 'Upload Receipt (PDF/JPG/PNG)' : 'Upload Supporting Doc (optional)'}</label>
                                     <input type="file" name="file" className="w-full rounded border p-2 text-sm" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.webp" />
