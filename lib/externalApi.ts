@@ -121,7 +121,7 @@ class ExternalStudentApiService {
       const { students } = await collections();
 
       await students.updateOne(
-        { userId: Number(userId) },
+        { userId: userId },
         {
           $set: {
             firstName: student.firstName,

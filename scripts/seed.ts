@@ -89,10 +89,17 @@ async function seed() {
       },
     });
 
-    await prisma.clearanceStep.update({
+    // Find the step by stepNumber and update it
+    const step = await prisma.clearanceStep.findFirst({
       where: { stepNumber: off.step },
-      data: { assignedOfficerId: officer.id },
     });
+    
+    if (step) {
+      await prisma.clearanceStep.update({
+        where: { id: step.id },
+        data: { assignedOfficerId: officer.id },
+      });
+    }
 
     console.log(`✓ Created Officer: ${off.name} (Step ${off.step})`);
   }

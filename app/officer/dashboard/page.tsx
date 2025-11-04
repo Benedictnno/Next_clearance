@@ -221,7 +221,7 @@ export default function OfficerDashboard() {
 
         {/* Quick Access Navigation */}
         <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-lg p-6 mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex md:flex-row flex-col gap-4 items-center justify-between">
             <div>
               <h3 className="text-white text-lg font-semibold mb-1">New Office Clearance Workflow</h3>
               <p className="text-indigo-100 text-sm">Review office-specific clearance submissions (10 offices)</p>
@@ -230,7 +230,7 @@ export default function OfficerDashboard() {
               onClick={() => router.push('/officer/clearance-workflow')}
               className="bg-white text-indigo-600 px-6 py-3 rounded-lg hover:bg-indigo-50 font-semibold transition shadow-md"
             >
-              📋 Open Workflow Dashboard →
+               Open Dashboard →
             </button>
           </div>
         </div>

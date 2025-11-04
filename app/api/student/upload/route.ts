@@ -10,7 +10,16 @@ import { security, applySecurityHeaders, withRateLimit } from '@/lib/security';
 
 const uploadHandler = async (req: NextRequest) => {
   try {
-    const session = await requireRole('student');
+    const auth = await requireRole('STUDENT');
+    
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status || 401 });
+    }
+    
+    const { session } = auth;
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 401 });
+    }
     const formData = await req.formData();
     
     const stepId = formData.get('step_id') as string;
@@ -95,32 +104,25 @@ const uploadHandler = async (req: NextRequest) => {
       { 
         $set: { 
           receiptUrl: fileUrl,
-          status: 'in_review',
           updatedAt: new Date()
         } 
       }
     );
 
     // Get the step details to find the responsible officer
-    const { steps, departments, notifications } = await collections();
+    const { steps, notifications } = await collections();
     const step = await steps.findOne({ _id: new ObjectId(stepId) });
     
-    if (step && step.departmentId) {
-      const department = await departments.findOne({ _id: step.departmentId });
-      
-      if (department && department.officerId) {
-        // Create notification for the officer
-        await notifications.insertOne({
-          userId: department.officerId,
-          title: 'New Document Submission',
-          message: `A new document has been submitted for review by ${student.name || 'a student'}`,
-          link: `/officer/dashboard?documentId=${currentProgress._id}`,
-          read: false,
-          createdAt: new Date()
-        });
-      }
-    }
-
+    // Create notification for officers - simplified since we don't have department mapping
+    await notifications.insertOne({
+      userId: 'officer', // General officer notification
+      title: 'New Document Submission',
+      message: `A new document has been submitted for review by ${student.firstName || 'a student'}`,
+      link: `/officer/dashboard?documentId=${currentProgress._id}`,
+      read: false,
+      createdAt: new Date()
+    });
+    
     // Notify student
     await notify(
       String(session.userId),
@@ -133,7 +135,7 @@ const uploadHandler = async (req: NextRequest) => {
       success: true,
       message: 'Document uploaded successfully and forwarded to the appropriate officer for review.',
       fileUrl,
-      status: 'in_review'
+      status: 'pending'
     });
     return applySecurityHeaders(response);
 

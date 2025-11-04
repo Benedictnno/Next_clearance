@@ -11,7 +11,16 @@ import { schemas, validators } from '@/lib/validators';
 
 const uploadHandler = async (req: NextRequest) => {
   try {
-    const session = await requireRole('student');
+    const auth = await requireRole('STUDENT');
+    
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status || 401 });
+    }
+    
+    const { session } = auth;
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 401 });
+    }
     const formData = await req.formData();
     
     const stepId = formData.get('step_id') as string;
@@ -53,7 +62,7 @@ const uploadHandler = async (req: NextRequest) => {
 
     // Get student data
     const { students, progress } = await collections();
-    const student = await students.findOne({ userId: String(session.userId) });
+    const student = await students.findOne({ userId: session.userId });
     if (!student) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }

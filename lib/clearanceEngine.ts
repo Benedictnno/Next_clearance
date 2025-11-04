@@ -48,7 +48,7 @@ class ClearanceEngine {
    */
   async getStudentProgress(studentId: string): Promise<StudentProgress> {
     try {
-      const { students, clearanceSteps, clearanceProgress } = await collections();
+      const { students, steps, progress } = await collections();
       
       // Get student info
       const student = await students.findOne({ 
@@ -63,14 +63,14 @@ class ClearanceEngine {
       }
 
       // Get all clearance steps
-      const steps = await clearanceSteps.find({}).sort({ stepNumber: 1 }).toArray();
+      const clearanceSteps = await steps.find({}).sort({ stepNumber: 1 }).toArray();
       
       // Get student's progress for each step
-      const progressEntries = await clearanceProgress.find({
+      const progressEntries = await progress.find({
         studentId: String(student._id)
       }).toArray();
 
-      const stepsWithProgress = steps.map(step => {
+      const stepsWithProgress = clearanceSteps.map(step => {
         const progress = progressEntries.find(p => 
           p.stepId.toString() === step._id.toString()
         );
@@ -81,19 +81,19 @@ class ClearanceEngine {
             stepNumber: step.stepNumber,
             name: step.name,
             requiresPayment: step.requiresPayment || false,
-            paymentAmount: step.paymentAmount
+            paymentAmount: step.paymentAmount || undefined
           },
           progress: {
             status: progress?.status || 'pending',
-            comment: progress?.comment,
+            comment: progress?.comment || undefined,
             updatedAt: progress?.updatedAt || new Date()
           }
         };
       });
 
       const approvedSteps = stepsWithProgress.filter(s => s.progress.status === 'approved').length;
-      const progressPercentage = Math.round((approvedSteps / steps.length) * 100);
-      const isCompleted = approvedSteps === steps.length;
+      const progressPercentage = Math.round((approvedSteps / clearanceSteps.length) * 100);
+      const isCompleted = approvedSteps === clearanceSteps.length;
 
       return {
         studentId: String(student._id),
@@ -131,7 +131,7 @@ class ClearanceEngine {
     comment?: string
   ): Promise<OfficerActionResult> {
     try {
-      const { clearanceProgress, clearanceSteps, students, officers } = await collections();
+      const { progress, steps, students, officers } = await collections();
       
       // Validate inputs
       if (!['approve', 'reject'].includes(action)) {
@@ -151,7 +151,7 @@ class ClearanceEngine {
       }
 
       // Get step
-      const step = await clearanceSteps.findOne({ _id: new ObjectId(stepId) });
+      const step = await steps.findOne({ _id: new ObjectId(stepId) });
       if (!step) {
         return { success: false, message: 'Clearance step not found' };
       }
@@ -173,7 +173,7 @@ class ClearanceEngine {
         studentId: String(student._id),
         stepId: new ObjectId(stepId),
         stepNumber: step.stepNumber,
-        status: action === 'approve' ? 'approved' : 'rejected',
+        status: (action === 'approve' ? 'approved' : 'rejected') as 'approved' | 'rejected',
         comment: comment || '',
         officerId: String(officer._id),
         officerName: officer.name,
@@ -181,7 +181,7 @@ class ClearanceEngine {
         updatedAt: new Date()
       };
 
-      await clearanceProgress.updateOne(
+      await progress.updateOne(
         { 
           studentId: String(student._id),
           stepId: new ObjectId(stepId)
@@ -255,7 +255,7 @@ class ClearanceEngine {
    */
   async initiateClearance(studentId: string): Promise<{ success: boolean; message: string }> {
     try {
-      const { students, clearanceSteps, clearanceProgress } = await collections();
+      const { students, steps, progress } = await collections();
       
       // Get student
       const student = await students.findOne({ 
@@ -270,7 +270,7 @@ class ClearanceEngine {
       }
 
       // Check if already initiated
-      const existingProgress = await clearanceProgress.findOne({
+      const existingProgress = await progress.findOne({
         studentId: String(student._id)
       });
       
@@ -279,23 +279,23 @@ class ClearanceEngine {
       }
 
       // Get all clearance steps
-      const steps = await clearanceSteps.find({}).sort({ stepNumber: 1 }).toArray();
+      const clearanceSteps = await steps.find({}).sort({ stepNumber: 1 }).toArray();
       
-      if (steps.length === 0) {
+      if (clearanceSteps.length === 0) {
         return { success: false, message: 'No clearance steps configured' };
       }
 
       // Create initial progress entries for all steps
-      const progressEntries = steps.map(step => ({
+      const progressEntries = clearanceSteps.map(step => ({
         studentId: String(student._id),
         stepId: step._id,
         stepNumber: step.stepNumber,
-        status: 'pending',
+        status: 'pending' as const,
         createdAt: new Date(),
         updatedAt: new Date()
       }));
 
-      await clearanceProgress.insertMany(progressEntries);
+      await progress.insertMany(progressEntries);
 
       // Notify student
       await notificationService.createNotification(

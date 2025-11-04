@@ -51,7 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ path
     headers.set('Cache-Control', 'private, max-age=31536000, immutable');
     headers.set('X-Content-Type-Options', 'nosniff');
 
-    return new Response(data, { status: 200, headers });
+    return new Response(data as any, { status: 200, headers });
   } catch (err) {
     return new Response('Not Found', { status: 404 });
   }

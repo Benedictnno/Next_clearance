@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
+import { ObjectId } from 'mongodb';
 import { collections } from './mongoCollections';
 
 export interface StudentData {
@@ -9,10 +10,6 @@ export interface StudentData {
   department: string;
   faculty: string;
   level: string;
-  phoneNumber?: string;
-  address?: string;
-  dateOfBirth?: Date;
-  gender?: string;
 }
 
 export interface ClearanceStepData {
@@ -271,8 +268,6 @@ class PDFGenerator {
       `Department: ${data.student.department}`,
       `Faculty: ${data.student.faculty}`,
       `Level: ${data.student.level}`,
-      `Phone Number: ${data.student.phoneNumber || 'Not provided'}`,
-      `Address: ${data.student.address || 'Not provided'}`,
     ];
 
     studentDetails.forEach((detail, index) => {
@@ -359,7 +354,7 @@ class PDFGenerator {
   async getStudentDataForPDF(studentId: string): Promise<StudentData | null> {
     try {
       const { students } = await collections();
-      const student = await students.findOne({ _id: studentId });
+      const student = await students.findOne({ _id: new ObjectId(studentId) });
 
       if (!student) return null;
 
@@ -370,10 +365,6 @@ class PDFGenerator {
         department: student.department,
         faculty: student.faculty,
         level: student.level,
-        phoneNumber: student.phoneNumber,
-        address: student.address,
-        dateOfBirth: student.dateOfBirth,
-        gender: student.gender,
       };
     } catch (error) {
       console.error('Error getting student data for PDF:', error);
@@ -399,7 +390,7 @@ class PDFGenerator {
           status: stepProgress?.status || 'pending',
           approvedDate: stepProgress?.status === 'approved' ? stepProgress.updatedAt : undefined,
           officerName: stepProgress?.officerId ? 'Officer' : undefined, // TODO: Get actual officer name
-          comment: stepProgress?.comment,
+          comment: stepProgress?.comment || undefined,
         };
       });
     } catch (error) {

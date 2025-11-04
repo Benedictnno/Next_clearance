@@ -136,22 +136,16 @@ export default async function StudentProfile() {
 						<h3 className="text-lg font-semibold mb-4" style={{color:'#150E56'}}>Personal Information</h3>
 						<div className="space-y-3">
 							<div>
-								<label className="text-sm text-gray-600">Phone Number</label>
-								<p className="font-medium">{student.phoneNumber || 'Not provided'}</p>
+								<label className="text-sm text-gray-600">Full Name</label>
+								<p className="font-medium">{student.firstName} {student.lastName}</p>
 							</div>
 							<div>
-								<label className="text-sm text-gray-600">Address</label>
-								<p className="font-medium">{student.address || 'Not provided'}</p>
+								<label className="text-sm text-gray-600">Email</label>
+								<p className="font-medium">{session.email}</p>
 							</div>
 							<div>
-								<label className="text-sm text-gray-600">Date of Birth</label>
-								<p className="font-medium">
-									{student.dateOfBirth ? new Date(student.dateOfBirth).toLocaleDateString() : 'Not provided'}
-								</p>
-							</div>
-							<div>
-								<label className="text-sm text-gray-600">Gender</label>
-								<p className="font-medium">{student.gender || 'Not provided'}</p>
+								<label className="text-sm text-gray-600">Student ID</label>
+								<p className="font-medium">{session.userId}</p>
 							</div>
 						</div>
 					</div>

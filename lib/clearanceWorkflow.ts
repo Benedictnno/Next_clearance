@@ -195,11 +195,8 @@ class ClearanceWorkflowService {
       try {
         student = await students.findOne({ _id: new ObjectId(studentId) });
       } catch {
-        // If studentId is not a valid ObjectId, try as userId (numeric)
-        const numericId = parseInt(studentId, 10);
-        if (!isNaN(numericId)) {
-          student = await students.findOne({ userId: numericId });
-        }
+        // If studentId is not a valid ObjectId, try as userId (string)
+        student = await students.findOne({ userId: studentId });
       }
 
       // Get all submissions for this student

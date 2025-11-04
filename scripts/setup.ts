@@ -59,11 +59,23 @@ async function main() {
   ];
 
   for (const step of steps) {
-    await prisma.clearanceStep.upsert({
+    // Find existing step by stepNumber
+    const existingStep = await prisma.clearanceStep.findFirst({
       where: { stepNumber: step.stepNumber },
-      update: step,
-      create: step,
     });
+
+    if (existingStep) {
+      // Update existing step
+      await prisma.clearanceStep.update({
+        where: { id: existingStep.id },
+        data: step,
+      });
+    } else {
+      // Create new step
+      await prisma.clearanceStep.create({
+        data: step,
+      });
+    }
     console.log(`✓ Step ${step.stepNumber}: ${step.name}`);
   }
 

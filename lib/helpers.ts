@@ -8,7 +8,12 @@ export async function notify(userId: string, title: string, message: string, typ
   // Also create in Prisma for backward compatibility
   try {
     await prisma.notification.create({
-      data: { userId, title, message, type },
+      data: { 
+        userId, 
+        title, 
+        message, 
+        type: type.toUpperCase() as any 
+      },
     });
   } catch (error) {
     console.warn('Failed to create notification in Prisma:', error);
@@ -18,7 +23,11 @@ export async function notify(userId: string, title: string, message: string, typ
 
 export async function getStudentSteps(studentId: number) {
   return prisma.clearanceProgress.findMany({
-    where: { studentId: String(studentId) },
+    where: { 
+      request: {
+        studentId: String(studentId)
+      }
+    },
     include: { step: true },
     orderBy: { step: { stepNumber: 'asc' } },
   });
@@ -27,7 +36,7 @@ export async function getStudentSteps(studentId: number) {
 export async function getUnlockedStepNo(studentId: number): Promise<number | null> {
   const rows = await getStudentSteps(studentId);
   for (const r of rows) {
-    if (r.status !== 'approved') return r.step.stepNumber;
+    if (r.status !== 'APPROVED') return r.step.stepNumber;
   }
   return null;
 }
@@ -35,7 +44,7 @@ export async function getUnlockedStepNo(studentId: number): Promise<number | nul
 export async function isStepCurrent(studentId: number, stepId: number): Promise<boolean> {
   const rows = await getStudentSteps(studentId);
   for (const r of rows) {
-    if (r.status !== 'approved') {
+    if (r.status !== 'APPROVED') {
       return r.stepId === String(stepId);
     }
   }

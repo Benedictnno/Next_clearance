@@ -7,11 +7,20 @@ import { applySecurityHeaders } from '@/lib/security';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole('STUDENT');
+    const auth = await requireRole('STUDENT');
+    
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status || 401 });
+    }
+    
+    const { session } = auth;
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 401 });
+    }
     
     // Get student data from MongoDB
     const { students } = await collections();
-    const student = await students.findOne({ userId: Number(session.user?.id) });
+    const student = await students.findOne({ userId: session.userId });
 
     if (!student) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });

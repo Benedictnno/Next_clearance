@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
     const { session } = auth;
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 401 });
+    }
     
     // Check if clearance is completed
     const isCompleted = await clearanceEngine.isClearanceCompleted(String(session.userId));
@@ -86,6 +89,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
     const { session } = auth;
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 401 });
+    }
     
     // Check if clearance is completed
     const isCompleted = await clearanceEngine.isClearanceCompleted(String(session.userId));

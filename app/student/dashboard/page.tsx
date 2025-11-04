@@ -2,4 +2,7 @@ import EnhancedStudentDashboard from '@/components/student/EnhancedStudentDashbo
 
 export default function StudentDashboard() {
   return <EnhancedStudentDashboard />;
-}
+} 
+
+
+
