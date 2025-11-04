@@ -82,28 +82,34 @@ export async function getCurrentUser() {
   const lookupUserId = String(payload.userId ?? '');
   console.log('Looking up user with ID:', lookupUserId);
   
-  // First try to find existing user
-  const user = await prisma.user.findFirst({
-    where: { id: lookupUserId },
-    include: {
-      student: {
-        include: {
-          department: {
-            include: {
-              hodOfficer: true,
+  // First try to find existing user, but handle DB errors gracefully
+  let user: any = null;
+  try {
+    user = await prisma.user.findFirst({
+      where: { id: lookupUserId },
+      include: {
+        student: {
+          include: {
+            department: {
+              include: {
+                hodOfficer: true,
+              },
             },
+            faculty: true,
           },
-          faculty: true,
         },
-      },
-      officer: {
-        include: {
-          department: true,
+        officer: {
+          include: {
+            department: true,
+          },
         },
+        admin: true,
       },
-      admin: true,
-    },
-  });
+    });
+  } catch (dbError) {
+    console.error('Prisma error in getCurrentUser, falling back to token payload:', dbError);
+    user = null;
+  }
 
   // If user doesn't exist and we have enough info from token, create a virtual user object
   if (!user && payload.role === 'STUDENT') {

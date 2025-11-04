@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import {prisma}  from '@/lib/prisma';
 
+// Ensure this route runs on the Node.js runtime (Prisma is not supported on Edge)
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   
@@ -29,15 +32,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: profile });
   }
 
-  // Otherwise, fetch from database
-  const student = await prisma.student.findUnique({
-    where: { userId: user.id },
-    include: {
-      department: true,
-      faculty: true,
-      user: true,
-    },
-  });
+  // Otherwise, fetch from database (handle DB errors gracefully)
+  let student: any = null;
+  try {
+    student = await prisma.student.findUnique({
+      where: { userId: user.id },
+      include: {
+        department: true,
+        faculty: true,
+        user: true,
+      },
+    });
+  } catch (dbError) {
+    console.error('Prisma error in /api/student/profile, using virtual profile:', dbError);
+    student = null;
+  }
 
   if (!student) {
     // If not found in DB, use virtual user data
