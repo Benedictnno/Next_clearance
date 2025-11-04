@@ -10,7 +10,7 @@ export default function Home() {
         <div className="relative z-10">
           <div className="flex md:flex-row flex-col items-center justify-center mb-8">
             <Image src="/assets/eksu_core.png" alt="Logo" width={300} height={300} className="w-32 h-32 md:w-48 md:h-48 lg:w-64 lg:h-64" />
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white shadow-sm"> EKSU Core Digital Clearance System</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white shadow-sm"> Digital Clearance System</h1>
           </div>
           <p className="text-lg md:text-xl max-w-3xl mx-auto text-white/90 leading-relaxed">
             A streamlined platform for managing student clearance processes efficiently and transparently.
@@ -124,7 +124,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0">
-              <h3 className="text-xl font-bold"> <Image src="/assets/eksu_core.png" alt="Logo" width={50} height={50} className="w-8 h-8 md:w-10 md:h-10" /> EKSU Core Digital Clearance</h3>
+              <h3 className="text-xl font-bold"> <Image src="/assets/eksu_core.png" alt="Logo" width={50} height={50} className="w-8 h-8 md:w-10 md:h-10" /> Digital Clearance</h3>
               <p className="text-gray-400">Streamlining student clearance processes</p>
             </div>
             <div className="flex gap-4 md:gap-8">
