@@ -5,6 +5,9 @@ import { clearanceEngine } from '@/lib/clearanceEngine';
 import { collections } from '@/lib/mongoCollections';
 import { applySecurityHeaders } from '@/lib/security';
 
+// Ensure Node.js runtime (Mongo driver requires Node)
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireRole('STUDENT');

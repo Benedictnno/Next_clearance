@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { clearanceWorkflow } from '@/lib/clearanceWorkflow';
 import { applySecurityHeaders } from '@/lib/security';
 
+// Ensure Node.js runtime (Mongo/Prisma are not supported on Edge)
+export const runtime = 'nodejs';
+
 /**
  * GET /api/student/clearance-workflow/status
  * Get student's clearance status across all offices
