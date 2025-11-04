@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/db';
+import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import * as QRCode from 'qrcode';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
       where: { id: studentId || '' },
       include: {
         user: true,
-        studentID: true
+        studentID: true,
+        department: true,
+        faculty: true,
       }
     });
 
@@ -72,7 +74,7 @@ export async function GET(request: NextRequest) {
       color: rgb(0, 0, 0),
     });
     
-    page.drawText(`Department: ${student.department}`, {
+    page.drawText(`Department: ${student.department?.name ?? 'N/A'}`, {
       x: 30,
       y: height - 120,
       size: 10,
@@ -80,7 +82,7 @@ export async function GET(request: NextRequest) {
       color: rgb(0, 0, 0),
     });
     
-    page.drawText(`Faculty: ${student.faculty}`, {
+    page.drawText(`Faculty: ${student.faculty?.name ?? 'N/A'}`, {
       x: 30,
       y: height - 140,
       size: 10,
@@ -113,7 +115,10 @@ export async function GET(request: NextRequest) {
       color: rgb(0, 0, 0),
     });
     
-    page.drawText(`Expiry Date: ${new Date(student.studentID.expiryDate).toLocaleDateString()}`, {
+    const expiryDateText = student.studentID.expiryDate
+      ? new Date(student.studentID.expiryDate).toLocaleDateString()
+      : 'N/A';
+    page.drawText(`Expiry Date: ${expiryDateText}`, {
       x: 200,
       y: height - 200,
       size: 10,

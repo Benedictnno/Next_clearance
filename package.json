@@ -1,5 +1,5 @@
 {
-  "name": "next_clearence_app",
+  "name": "clearance-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,14 +7,18 @@
     "build": "next build --turbopack && prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "seed:mongo": "tsx scripts/seed-mongo.ts"
+    "seed:mongo": "tsx scripts/seed-mongo.ts",
+    "seed:steps": "tsx scripts/seed-clearance-steps.ts",
+    "create:mock": "tsx scripts/create-mock-data.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.17.1",
     "@react-pdf/renderer": "^4.3.1",
+    "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.3",
+    "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.20.0",
     "next": "^15.5.5",

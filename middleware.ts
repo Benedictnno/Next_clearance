@@ -1,59 +1,70 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import jwt from 'jsonwebtoken'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { verifyToken } from './lib/auth';
 
-const SESSION_COOKIE = 'session'
+export async function middleware(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl;
+  
+  // Get token from URL or cookies
+  const tokenFromUrl = searchParams.get('token');
+  const tokenFromCookie = request.cookies.get('auth_token')?.value;
+  
+  if (tokenFromUrl) {
+    console.log('Processing token from URL...');
+    
+    const payload = await verifyToken(tokenFromUrl);
+    
+    if (!payload) {
+      console.log('Invalid token, redirecting to home');
+      return NextResponse.redirect(new URL('/', request.url));
+    }
 
-function getSession(req: NextRequest): { userId: number; role: 'student' | 'admin' | 'officer' } | null {
-	const token = req.cookies.get(SESSION_COOKIE)?.value
-	if (!token) return null
-	try {
-		const secret = process.env.SESSION_SECRET
-		if (!secret) return null
-		return jwt.verify(token, secret) as any
-	} catch {
-		return null
-	}
-}
+    console.log('Token verified, payload:', payload);
 
-export function middleware(req: NextRequest) {
-	const { pathname } = req.nextUrl
-	// Bypass auth in dev when DEV_AUTH_BYPASS=true
-	if (process.env.DEV_AUTH_BYPASS === 'true') {
-		return NextResponse.next()
-	}
-	const session = getSession(req)
+    // Create response with redirect
+    let redirectUrl = '/';
+    if (payload.role === 'STUDENT') {
+      redirectUrl = '/student/dashboard';
+    } else if (payload.role === 'OFFICER') {
+      redirectUrl = '/officer/dashboard';
+    } else if (payload.role === 'ADMIN' || payload.role === 'SUPER_ADMIN') {
+      redirectUrl = '/admin/dashboard';
+    }
 
-	const isStudentArea = pathname.startsWith('/student')
-	const isOfficerArea = pathname.startsWith('/officer')
-	const isAdminArea = pathname.startsWith('/admin')
+    const response = NextResponse.redirect(new URL(redirectUrl, request.url));
+    
+    // Set the cookie for future requests
+    response.cookies.set('auth_token', tokenFromUrl, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
 
-	if (isStudentArea) {
-		if (!session || session.role !== 'student') {
-			const url = req.nextUrl.clone()
-			url.pathname = '/login'
-			return NextResponse.redirect(url)
-		}
-	}
+    console.log('Cookie set, redirecting to:', redirectUrl);
+    return response;
+  }
 
-	if (isOfficerArea) {
-		if (!session || session.role !== 'officer') {
-			const url = req.nextUrl.clone()
-			url.pathname = '/officer/login'
-			return NextResponse.redirect(url)
-		}
-	}
 
-	if (isAdminArea) {
-		if (!session || session.role !== 'admin') {
-			const url = req.nextUrl.clone()
-			url.pathname = '/admin/login'
-			return NextResponse.redirect(url)
-		}
-	}
-
-	return NextResponse.next()
+  // Default: allow request to continue
+  console.log('Allowing request to continue');
+  return NextResponse.next();
 }
 
 export const config = {
-	matcher: ['/student/:path*', '/officer/:path*', '/admin/:path*']
-}
+  // Run middleware on all routes that need token verification
+  matcher: [
+    '/',
+    '/student/:path*',
+    '/officer/:path*',
+    '/admin/:path*',
+    // API routes that need authentication
+    '/api/student/:path*',
+    '/api/officer/:path*',
+    '/api/admin/:path*',
+    '/api/clearance/:path*',
+    '/api/notifications/:path*',
+  ],
+  runtime: 'nodejs',
+};

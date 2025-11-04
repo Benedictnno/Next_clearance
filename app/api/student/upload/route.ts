@@ -1,43 +1,155 @@
-import { NextResponse } from 'next/server'
-import { getSession, requireRole } from '@/lib/auth'
-import { isStepCurrent } from '@/lib/helpers'
-import { saveUpload } from '@/lib/upload'
-import { collections } from '@/lib/mongoCollections'
+// app/api/student/upload/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/auth';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
+import { ObjectId } from 'mongodb';
+import { collections } from '@/lib/mongoCollections';
+import { notify } from '@/lib/helpers';
+import { security, applySecurityHeaders, withRateLimit } from '@/lib/security';
 
-export const runtime = 'nodejs'
+const uploadHandler = async (req: NextRequest) => {
+  try {
+    const session = await requireRole('student');
+    const formData = await req.formData();
+    
+    const stepId = formData.get('step_id') as string;
+    const file = formData.get('file') as File;
+    
+    if (!stepId || !file) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Missing required fields. Please provide both step ID and file.' 
+      }, { status: 400 });
+    }
 
-export async function POST(req: Request) {
-	try {
-		const session = await requireRole('student')
-		const form = await (req as any).formData?.() ?? await req.formData()
-		const file = form.get('file') as File | null
+    // Validate step ID
+    try {
+      new ObjectId(stepId);
+    } catch (error) {
+      return NextResponse.json({ error: 'Invalid step ID' }, { status: 400 });
+    }
 
-		const rawStepId = form.get('step_id');
-        const stepId = isNaN(Number(rawStepId)) ? Number(rawStepId) : Number(rawStepId);
+    // Validate file
+    const fileValidation = security.validateFile(file, {
+      maxSize: 10 * 1024 * 1024, // 10MB
+      allowedTypes: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/jpg',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ]
+    });
 
-		const currentOk = await isStepCurrent(session.userId, Number(stepId))
-		if (!currentOk) {
-			return NextResponse.json({ error: 'You can only submit the current step.' }, { status: 400 })
-		}
+    if (!fileValidation.valid) {
+      return NextResponse.json({ error: fileValidation.error }, { status: 400 });
+    }
 
-		let relPath: string | null = null
-		if (file) {
-			relPath = await saveUpload(session.userId, stepId, file)
-		}
+    // Check for malicious content
+    const contentCheck = await security.checkFileContent(file);
+    if (!contentCheck.safe) {
+      return NextResponse.json({ error: contentCheck.reason }, { status: 400 });
+    }
 
-		const { students, progress: progressCol } = await collections()
-		const student = await students.findOne({ userId: session.userId })
-		if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
-		await progressCol.updateOne(
-			{ studentId: student._id, stepId },
-			{ $set: { status: 'pending', updatedAt: new Date(), receiptUrl: relPath || null } },
-			{ upsert: true }
-		)
+    // Get student data
+    const { students, progress } = await collections();
+    const student = await students.findOne({ userId: session.userId });
+    if (!student) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
 
-		return NextResponse.json({ ok: true, file: relPath })
-	} catch (e: any) {
-		return NextResponse.json({ error: e?.message || 'Upload failed' }, { status: 400 })
-	}
-}
+    // Check if step is current for this student
+    const currentProgress = await progress.findOne({
+      studentId: student._id,
+      stepId: new ObjectId(stepId),
+      status: 'pending'
+    });
 
+    if (!currentProgress) {
+      return NextResponse.json({ 
+        error: 'This step is not currently available for upload' 
+      }, { status: 400 });
+    }
 
+    // Generate secure filename
+    const secureFilename = security.generateSecureFilename(
+      file.name, 
+      String(session.userId)
+    );
+
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = join(process.cwd(), 'uploads');
+    await mkdir(uploadsDir, { recursive: true });
+
+    // Save file
+    const filePath = join(uploadsDir, secureFilename);
+    const buffer = await file.arrayBuffer();
+    await writeFile(filePath, Buffer.from(buffer));
+
+    // Update progress with file URL
+    const fileUrl = `/uploads/${secureFilename}`;
+    await progress.updateOne(
+      { _id: currentProgress._id },
+      { 
+        $set: { 
+          receiptUrl: fileUrl,
+          status: 'in_review',
+          updatedAt: new Date()
+        } 
+      }
+    );
+
+    // Get the step details to find the responsible officer
+    const { steps, departments, notifications } = await collections();
+    const step = await steps.findOne({ _id: new ObjectId(stepId) });
+    
+    if (step && step.departmentId) {
+      const department = await departments.findOne({ _id: step.departmentId });
+      
+      if (department && department.officerId) {
+        // Create notification for the officer
+        await notifications.insertOne({
+          userId: department.officerId,
+          title: 'New Document Submission',
+          message: `A new document has been submitted for review by ${student.name || 'a student'}`,
+          link: `/officer/dashboard?documentId=${currentProgress._id}`,
+          read: false,
+          createdAt: new Date()
+        });
+      }
+    }
+
+    // Notify student
+    await notify(
+      String(session.userId),
+      'Document Uploaded',
+      'Your document has been uploaded and forwarded to the appropriate officer for review.',
+      'success'
+    );
+
+    const response = NextResponse.json({
+      success: true,
+      message: 'Document uploaded successfully and forwarded to the appropriate officer for review.',
+      fileUrl,
+      status: 'in_review'
+    });
+    return applySecurityHeaders(response);
+
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    const response = NextResponse.json(
+      { 
+        success: false,
+        error: error?.message || 'Upload failed. Please try again later.',
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      },
+      { status: 500 }
+    );
+    return applySecurityHeaders(response);
+  }
+};
+
+// Apply rate limiting (5 uploads per minute)
+export const POST = withRateLimit(5, 60000)(uploadHandler);

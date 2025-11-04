@@ -6,10 +6,10 @@
   --foreground: #111827;
 
   /* Brand palette */
-  --brand-900: #150E56; /* deep indigo */
-  --brand-700: #7B113A; /* maroon */
-  --brand-500: #1597BB; /* teal-blue */
-  --brand-300: #8FD6E1; /* light-teal */
+  --primary: #150E56; /* Primary */
+  --accent-dark: #7B113A; /* Accent Dark */
+  --secondary: #1597BB; /* Secondary */
+  --accent-light: #8FD6E1; /* Accent Light */
 
   --surface: #ffffff;
   --muted: #6B7280;

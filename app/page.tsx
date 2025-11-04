@@ -5,23 +5,26 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0]">
       {/* Hero Section */}
-      <div className="relative overflow-hidden text-center py-16 px-8 bg-gradient-to-br from-[#b91c1c] to-[#7f1d1d] text-white -mx-4 mb-16">
+      <div className="relative overflow-hidden text-center py-16 px-8 bg-gradient-to-br from-[#7B113A] to-[#150E56] text-white -mx-4 mb-16">
         <div className="absolute inset-0 opacity-30 bg-[url('/assets/pattern.svg')]"></div>
         <div className="relative z-10">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white shadow-sm">EKSU Digital Clearance System</h1>
+          <div className="flex md:flex-row flex-col items-center justify-center mb-8">
+            <Image src="/assets/eksu_core.png" alt="Logo" width={300} height={300} className="w-32 h-32 md:w-48 md:h-48 lg:w-64 lg:h-64" />
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white shadow-sm"> EKSU Core Digital Clearance System</h1>
+          </div>
           <p className="text-lg md:text-xl max-w-3xl mx-auto text-white/90 leading-relaxed">
             A streamlined platform for managing student clearance processes efficiently and transparently.
           </p>
           <div className="mt-8 flex flex-wrap gap-4 justify-center">
-            <Link href="/student/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#b91c1c] font-semibold rounded-md hover:bg-opacity-90 transition-all transform hover:-translate-y-1 hover:shadow-lg">
+            <Link href="/student/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#7B113A] font-semibold rounded-md hover:bg-opacity-90 transition-all transform hover:-translate-y-1 hover:shadow-lg">
               Student Dashboard
             </Link>
-            <Link href="/officer/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-transparent border-2 border-white text-white font-semibold rounded-md hover:bg-white hover:text-[#b91c1c] transition-all transform hover:-translate-y-1 hover:shadow-lg">
+            <Link href="/officer/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-transparent border-2 border-white text-white font-semibold rounded-md hover:bg-white hover:text-[#7B113A] transition-all transform hover:-translate-y-1 hover:shadow-lg">
               Officer Dashboard
             </Link>
-            <Link href="/admin/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-transparent border-2 border-white text-white font-semibold rounded-md hover:bg-white hover:text-[#b91c1c] transition-all transform hover:-translate-y-1 hover:shadow-lg">
+            {/* <Link href="/admin/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-transparent border-2 border-white text-white font-semibold rounded-md hover:bg-white hover:text-[#150E56] transition-all transform hover:-translate-y-1 hover:shadow-lg">
               Admin Dashboard
-            </Link>
+            </Link> */}
           </div>
         </div>
       </div>
@@ -113,21 +116,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="bg-white p-12 rounded-lg shadow-lg text-center my-16">
-          <h2 className="text-3xl font-semibold text-gray-800 mb-4">Ready to Get Started?</h2>
-          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-            Join thousands of students who have successfully completed their clearance process through our digital platform.
-          </p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            <Link href="/signup" className="px-8 py-3 bg-[#b91c1c] text-white font-semibold rounded-md hover:bg-[#a21c1c] transition-all transform hover:-translate-y-1 hover:shadow-lg inline-flex items-center gap-2">
-              Register Now
-            </Link>
-            <Link href="/login" className="px-8 py-3 bg-white text-[#b91c1c] border-2 border-[#b91c1c] font-semibold rounded-md hover:bg-[#b91c1c] hover:text-white transition-all transform hover:-translate-y-1 hover:shadow-lg">
-              Login
-            </Link>
-          </div>
-        </section>
+   
       </div>
 
       {/* Footer */}
@@ -135,10 +124,10 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0">
-              <h3 className="text-xl font-bold">EKSU Digital Clearance</h3>
+              <h3 className="text-xl font-bold"> <Image src="/assets/eksu_core.png" alt="Logo" width={50} height={50} className="w-8 h-8 md:w-10 md:h-10" /> EKSU Core Digital Clearance</h3>
               <p className="text-gray-400">Streamlining student clearance processes</p>
             </div>
-            <div className="flex gap-8">
+            <div className="flex gap-4 md:gap-8">
               <Link href="/about" className="text-gray-300 hover:text-white">About</Link>
               <Link href="/contact" className="text-gray-300 hover:text-white">Contact</Link>
               <Link href="/help" className="text-gray-300 hover:text-white">Help</Link>

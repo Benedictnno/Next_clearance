@@ -7,149 +7,315 @@ datasource db {
   url      = env("MONGODB_URI")
 }
 
-// ===================
-// USER MODEL
-// ===================
-model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  email     String   @unique
-  password  String
-  role      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// -----------------------------
+// Enums
+// -----------------------------
+enum Role {
+  STUDENT
+  OFFICER
+  ADMIN
+  SUPER_ADMIN
+}
 
+enum ClearanceRequestStatus {
+  PENDING
+  IN_PROGRESS
+  REJECTED
+  COMPLETED
+}
+
+enum StepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+enum DocumentType {
+  ID_CARD
+  CLEARANCE_FORM
+  RECEIPT
+  OTHER
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ACTION_REQUIRED
+  SUCCESS
+}
+
+// -----------------------------
+// User (auth - WITH reverse relations)
+// -----------------------------
+model User {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  externalId  String?  @unique
+  email       String   @unique
+  password    String?
+  name        String?
+  role        Role     @default(STUDENT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  
+  // Reverse relations
   student       Student?
   officer       Officer?
   admin         Admin?
   notifications Notification[]
+  auditLogs     AuditLog[]
 }
 
-// ===================
-// STUDENT MODEL
-// ===================
-model Student {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String    @unique @db.ObjectId
-  user         User      @relation(fields: [userId], references: [id])
-  matricNumber String    @unique
-  firstName    String
-  lastName     String
-  department   String
-  faculty      String
-  level        String
-  phoneNumber  String?
-  address      String?
-  dateOfBirth  DateTime?
-  gender       String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+// -----------------------------
+// Faculty
+// -----------------------------
+model Faculty {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  isDeleted  Boolean  @default(false)
+  deletedAt  DateTime?
 
-  clearanceProgress ClearanceProgress[]
+  departments Department[]
+  students    Student[]      @relation("StudentFaculty")
+}
+
+// -----------------------------
+// Department
+// -----------------------------
+model Department {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String   @unique
+  description   String?
+  contactEmail  String?
+  contactPhone  String?
+  facultyId     String?  @db.ObjectId
+  faculty       Faculty? @relation(fields: [facultyId], references: [id])
+
+  // HOD relation (the owning side defines fields/references)
+  // FIXED: Added @unique and onDelete/onUpdate to break the cycle
+  hodOfficerId  String?  @unique @db.ObjectId
+  hodOfficer    Officer? @relation(name: "HOD_OF_DEPARTMENT", fields: [hodOfficerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
+
+  // officers (inverse of Officer.department with named relation)
+  officers      Officer[] @relation(name: "OFFICERS_IN_DEPARTMENT")
+  students      Student[] @relation("StudentDepartment")
+  clearanceSteps ClearanceStep[]
+}
+
+// -----------------------------
+// Student (linked to User; NOW belongs to a department)
+// -----------------------------
+model Student {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String   @unique @db.ObjectId
+  user             User     @relation(fields: [userId], references: [id])
+  matricNumber     String   @unique
+  firstName        String?
+  lastName         String?
+  
+  // Faculty and Department relations with named relations
+  facultyId        String?  @db.ObjectId
+  faculty          Faculty? @relation(name: "StudentFaculty", fields: [facultyId], references: [id])
+  departmentId     String?  @db.ObjectId
+  department       Department? @relation(name: "StudentDepartment", fields: [departmentId], references: [id])
+  
+  level            String?
+  phoneNumber      String?
+  address          String?
+  dateOfBirth      DateTime?
+  gender           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  isDeleted        Boolean  @default(false)
+  deletedAt        DateTime?
+
+  clearanceRequests ClearanceRequest[]
   studentID         StudentID?
   nyscForm          NYSCForm?
+  nyscInfo          NYSCInfo?
   documents         Document[]
 }
 
-// ===================
-// OFFICER MODEL
-// ===================
+// -----------------------------
+// Officer (linked to User; belongs to Department, plus inverse HOD relation)
+// -----------------------------
 model Officer {
-  id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String     @unique @db.ObjectId
-  user         User       @relation(fields: [userId], references: [id])
-  name         String
-  departmentId String     @db.ObjectId
-  department   Department @relation(fields: [departmentId], references: [id])
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @unique @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id])
+  name         String?
+  departmentId String?  @db.ObjectId
 
-  clearanceApprovals ClearanceProgress[]
+  // This is the Officer -> Department relation (owning side)
+  // FIXED: Added onDelete/onUpdate to break the cycle
+  department   Department? @relation(name: "OFFICERS_IN_DEPARTMENT", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // This is the inverse side of Department.hodOfficer (no fields/references here)
+  hodDepartment Department? @relation(name: "HOD_OF_DEPARTMENT")
+
+  role         String?  // e.g., "HOD", "DEAN", "FACULTY_OFFICER"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  isDeleted    Boolean  @default(false)
+  deletedAt    DateTime?
+
+  approvals    ClearanceProgress[]
+  assignedSteps ClearanceStep[] @relation(name: "ASSIGNED_TO_STEP")
 }
 
-// ===================
-// ADMIN MODEL
-// ===================
+// -----------------------------
+// Admin (linked to User)
+// -----------------------------
 model Admin {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @unique @db.ObjectId
   user      User     @relation(fields: [userId], references: [id])
-  name      String
+  name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
 }
 
-// ===================
-// DEPARTMENT MODEL
-// ===================
-model Department {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  name         String   @unique
-  description  String?
-  contactEmail String?
-  contactPhone String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  officers       Officer[]
-  clearanceSteps ClearanceStep[]
-}
-
-// ===================
-// CLEARANCE STEP MODEL
-// ===================
+// -----------------------------
+// ClearanceStep (template - optional department association)
+// -----------------------------
 model ClearanceStep {
-  id              String     @id @default(auto()) @map("_id") @db.ObjectId
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   stepNumber      Int
   name            String
   description     String?
-  departmentId    String     @db.ObjectId
-  department      Department @relation(fields: [departmentId], references: [id])
-  requiresPayment Boolean    @default(false)
+  
+  // NEW: isDepartmentSpecific flag
+  isDepartmentSpecific Boolean @default(false) // true for HOD, false for others
+  
+  departmentId    String?  @db.ObjectId
+  department      Department? @relation(fields: [departmentId], references: [id])
+  
+  // NEW: For university-wide steps, assign a specific officer
+  assignedOfficerId String? @db.ObjectId
+  assignedOfficer   Officer? @relation(name: "ASSIGNED_TO_STEP", fields: [assignedOfficerId], references: [id])
+  
+  requiresPayment Boolean  @default(false)
   paymentAmount   Float?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  
+  // Document requirements for this step
+  requiredDocuments Json? // Array of required document types
+  requiresReceipt   Boolean @default(false)
+  receiptDescription String? // e.g., "Payment receipt for clearance fee"
+  supportingDocsDescription String? // e.g., "Upload library clearance form"
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  isDeleted       Boolean  @default(false)
+  deletedAt       DateTime?
 
   clearanceProgress ClearanceProgress[]
 }
 
-// ===================
-// CLEARANCE PROGRESS MODEL
-// ===================
-model ClearanceProgress {
-  id          String        @id @default(auto()) @map("_id") @db.ObjectId
-  studentId   String        @db.ObjectId
-  student     Student       @relation(fields: [studentId], references: [id])
-  stepId      String        @db.ObjectId
-  step        ClearanceStep @relation(fields: [stepId], references: [id])
-  status      String        @default("pending")
-  officerId   String?       @db.ObjectId
-  officer     Officer?      @relation(fields: [officerId], references: [id])
-  comment     String?
-  documentUrl String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+// -----------------------------
+// ClearanceRequest (instance per student)
+// -----------------------------
+model ClearanceRequest {
+  id            String                 @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String                 @db.ObjectId
+  student       Student                @relation(fields: [studentId], references: [id])
+  status        ClearanceRequestStatus @default(PENDING)
+  currentStep   Int                    @default(1)
+  startedAt     DateTime               @default(now())
+  completedAt   DateTime?
+  finalPdfUrl   String?
+  nyscAccessed  Boolean                @default(false)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  isDeleted     Boolean                @default(false)
+  deletedAt     DateTime?
+
+  steps         ClearanceProgress[]
+  documents     Document[]            // request-level documents (optional)
+  notifications Notification[]
 }
 
-// ===================
-// STUDENT ID MODEL
-// ===================
+// -----------------------------
+// ClearanceProgress (instance per step)
+// -----------------------------
+model ClearanceProgress {
+  id                 String           @id @default(auto()) @map("_id") @db.ObjectId
+  requestId          String           @db.ObjectId
+  request            ClearanceRequest @relation(fields: [requestId], references: [id])
+  stepId             String           @db.ObjectId
+  step               ClearanceStep    @relation(fields: [stepId], references: [id])
+  stepNumber         Int
+  officeName         String
+  status             StepStatus       @default(PENDING)
+  officerId          String?          @db.ObjectId
+  officer            Officer?         @relation(fields: [officerId], references: [id])
+  comment            String?
+  actionedAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  isDeleted          Boolean          @default(false)
+  deletedAt          DateTime?
+
+  documents          Document[]
+}
+
+// -----------------------------
+// Document (Cloudinary metadata)
+// can link to student-level, request-level, or step-level
+// -----------------------------
+model Document {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId           String?  @db.ObjectId
+  student             Student? @relation(fields: [studentId], references: [id])
+  requestId           String?  @db.ObjectId
+  request             ClearanceRequest? @relation(fields: [requestId], references: [id])
+  clearanceProgressId String?  @db.ObjectId
+  clearanceProgress   ClearanceProgress? @relation(fields: [clearanceProgressId], references: [id])
+
+  fileName            String
+  fileSize            Int
+  mimeType            String
+  documentType        DocumentType
+  cloudinaryPublicId  String
+  cloudinaryUrl       String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  isDeleted           Boolean  @default(false)
+  deletedAt           DateTime?
+}
+
+// -----------------------------
+// StudentID (card)
+// -----------------------------
 model StudentID {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   studentId  String   @unique @db.ObjectId
   student    Student  @relation(fields: [studentId], references: [id])
   cardNumber String   @unique
-  qrCode     String
-  imageUrl   String
+  qrCode     String?
+  imageUrl   String?
   issuedDate DateTime @default(now())
-  expiryDate DateTime
+  expiryDate DateTime?
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  isDeleted  Boolean  @default(false)
+  deletedAt  DateTime?
 }
 
-// ===================
-// NYSC FORM MODEL
-// ===================
+// -----------------------------
+// NYSC Form
+// -----------------------------
 model NYSCForm {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId
   studentId     String   @unique @db.ObjectId
@@ -160,35 +326,63 @@ model NYSCForm {
   status        String   @default("generated")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
 }
 
-// ===================
-// DOCUMENT MODEL
-// ===================
-model Document {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  studentId    String   @db.ObjectId
-  student      Student  @relation(fields: [studentId], references: [id])
-  fileName     String
-  fileUrl      String
-  fileType     String
-  fileSize     Int
-  documentType String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+// -----------------------------
+// NYSC Info (student information for NYSC mobilization)
+// -----------------------------
+model NYSCInfo {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId         String   @unique @db.ObjectId
+  student           Student  @relation(fields: [studentId], references: [id])
+  name              String
+  faculty           String
+  department        String
+  courseOfStudy     String
+  matricNumber      String
+  jambRegNo         String?
+  sex               String
+  dateOfBirthDay    String
+  dateOfBirthMonth  String
+  dateOfBirthYear   String
+  maritalStatus     String
+  stateOfOrigin     String
+  lgaOfOrigin       String
+  dateOfGraduation  String?
+  phoneNumber       String
+  email             String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
-// ===================
-// NOTIFICATION MODEL
-// ===================
+// -----------------------------
+// Notification
+// -----------------------------
 model Notification {
+  id         String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String           @db.ObjectId
+  user       User             @relation(fields: [userId], references: [id])
+  requestId  String?          @db.ObjectId
+  request    ClearanceRequest? @relation(fields: [requestId], references: [id])
+  title      String
+  message    String
+  isRead     Boolean          @default(false)
+  type       NotificationType @default(INFO)
+  payload    Json?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
+
+// -----------------------------
+// Audit Log
+// -----------------------------
+model AuditLog {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @unique @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id])
-  title     String
-  message   String
-  isRead    Boolean  @default(false)
-  type      String   @default("info")
+  userId    String?  @db.ObjectId
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  meta      Json?
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

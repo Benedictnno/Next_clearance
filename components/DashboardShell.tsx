@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import NotificationCenter from './NotificationCenter'
 
 export default function DashboardShell({ title, children }: { title: string; children: React.ReactNode }) {
 	return (
@@ -6,11 +7,14 @@ export default function DashboardShell({ title, children }: { title: string; chi
 			<header className="topbar shadow px-4 py-3">
 				<div className="mx-auto max-w-7xl flex items-center justify-between">
 					<h1 className="text-lg font-semibold">EKSU Clearance</h1>
-					<nav className="flex items-center gap-4 text-sm">
-						<Link className="hover:underline" href="/student/dashboard">Student</Link>
-						<Link className="hover:underline" href="/officer/dashboard">Officer</Link>
-						<Link className="hover:underline" href="/admin/dashboard">Admin</Link>
-					</nav>
+					<div className="flex items-center gap-4">
+						<NotificationCenter userId="1" />
+						<nav className="flex items-center gap-4 text-sm">
+							<Link className="hover:underline" href="/student/dashboard">Student</Link>
+							<Link className="hover:underline" href="/officer/dashboard">Officer</Link>
+							<Link className="hover:underline" href="/admin/dashboard">Admin</Link>
+						</nav>
+					</div>
 				</div>
 			</header>
 			<main className="px-4 py-6">

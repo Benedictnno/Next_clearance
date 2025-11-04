@@ -1,37 +1,127 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EKSU Digital Clearance Management System
 
-## Getting Started
+## Overview
 
-First, run the development server:
+The EKSU Digital Clearance Management System is a comprehensive web application designed to streamline the student clearance process. It allows students to complete their clearance requirements digitally, officers to review and approve submissions, and administrators to manage the entire process.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Digital Clearance Process**: Complete the entire clearance process online
+- **Role-Based Access**: Different interfaces for students, officers, and administrators
+- **Document Management**: Upload and manage clearance documents
+- **Real-time Status Tracking**: Monitor clearance progress in real-time
+- **Certificate Generation**: Automatically generate clearance certificates and NYSC forms
+- **QR Code Verification**: Verify certificates using QR codes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Application Flow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Student Flow
 
-## Learn More
+1. **Registration/Login**: Students register with their matriculation number or log in to their account
+2. **Dashboard Access**: View clearance progress and pending requirements
+3. **Document Submission**: Upload required documents for each clearance step
+4. **Status Tracking**: Monitor approval status for each clearance step
+5. **Certificate Download**: Download clearance certificate and NYSC form upon completion
 
-To learn more about Next.js, take a look at the following resources:
+### Officer Flow
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Login**: Officers log in with their credentials
+2. **Review Submissions**: View pending student submissions for their department/unit
+3. **Approval/Rejection**: Approve or reject submissions with comments
+4. **Notification Management**: Receive notifications for new submissions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Admin Flow
 
-## Deploy on Vercel
+1. **System Management**: Configure clearance steps and requirements
+2. **User Management**: Manage student and officer accounts
+3. **Progress Monitoring**: View overall clearance statistics and progress
+4. **Issue Resolution**: Address issues and override steps when necessary
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Setup Instructions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-"# Next_clearance"  git init git add . git commit -m "first commit" git branch -M main git remote add origin https://github.com/Benedictnno/Next_clearance.git git push -u origin main
+### Prerequisites
+
+- Node.js 20+
+- MongoDB 6.0+
+- Git
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Benedictnno/Next_clearance.git
+   cd Next_clearance
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp env.example .env.local
+   ```
+   Update `.env.local` with your configuration:
+   ```
+   MONGODB_URI=mongodb://localhost:27017/eksu_clearance
+   MONGODB_DB=eksu_clearance
+   SESSION_SECRET=your-super-secret-session-key-here
+   EXTERNAL_API_BASE_URL=https://coreeksu.vercel.app
+   EXTERNAL_API_KEY=your-external-api-key-here
+   NEXT_PUBLIC_BASE_URL=http://localhost:3000
+   ```
+
+4. **Set up the database**
+   ```bash
+   npm run seed:mongo
+   ```
+
+5. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+   The application will be available at `http://localhost:3000`
+
+## Usage Guide
+
+### For Students
+
+1. **Registration**: Sign up with your matriculation number and personal details
+2. **Dashboard**: Access your dashboard to view clearance progress
+3. **Document Submission**: 
+   - Navigate to each clearance step
+   - Upload required documents
+   - Submit for review
+4. **Status Tracking**: Monitor the status of each step (pending, approved, rejected)
+5. **Certificate Download**: Once all steps are approved, download your clearance certificate and NYSC form
+
+### For Officers
+
+1. **Login**: Sign in with your officer credentials
+2. **Pending Reviews**: View the list of pending submissions for your department/unit
+3. **Review Process**:
+   - Open each submission
+   - Review attached documents
+   - Approve or reject with comments
+4. **Notifications**: Receive notifications for new submissions
+
+### For Administrators
+
+1. **System Configuration**: Set up clearance steps and requirements
+2. **User Management**: Add/edit/remove student and officer accounts
+3. **Progress Monitoring**: View statistics and reports on clearance progress
+4. **Issue Resolution**: Address student issues and override steps when necessary
+
+## Technologies Used
+
+- **Frontend**: Next.js, React, TailwindCSS
+- **Backend**: Next.js API Routes
+- **Database**: MongoDB, Prisma ORM
+- **Authentication**: JWT-based authentication
+- **PDF Generation**: PDF-lib, React-PDF
+- **QR Code**: QRCode library
+
+## Support
+
+For support or inquiries, please contact the system administrator or IT department.

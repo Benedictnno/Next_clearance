@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { students } = await collections()
-    const student = await students.findOne({ userId: session.userId })
+    const student = await students.findOne({ userId: Number(session.userId) })
     if (!student) {
       return NextResponse.json({ error: 'Student profile not found' }, { status: 404 });
     }
@@ -42,10 +42,17 @@ export async function GET(request: NextRequest) {
 // Generate or regenerate student ID card
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole('student');
+    const auth = await requireRole('STUDENT');
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const session = auth.session;
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: auth.status ?? 401 });
+    }
     
     const { students } = await collections()
-    const student = await students.findOne({ userId: session.userId })
+    const student = await students.findOne({ userId: Number(session.userId) })
     if (!student) {
       return NextResponse.json({ error: 'Student profile not found' }, { status: 404 });
     }
