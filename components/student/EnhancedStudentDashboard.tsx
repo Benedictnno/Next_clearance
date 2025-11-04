@@ -54,7 +54,7 @@ interface StudentProfile {
 }
 
 export default function EnhancedStudentDashboard() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [clearanceData, setClearanceData] = useState<ClearanceData | null>(null);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [initiating, setInitiating] = useState(false);
