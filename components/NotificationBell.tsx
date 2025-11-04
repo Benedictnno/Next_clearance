@@ -13,12 +13,31 @@ export default function NotificationBell() {
 
   async function fetchUnreadCount() {
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetch('/api/notifications', {
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          // Authentication error - don't show error, just set count to 0
+          setUnreadCount(0);
+          return;
+        }
+        // Other errors - log but don't crash
+        console.error('Notification fetch failed with status:', res.status);
+        setUnreadCount(0);
+        return;
+      }
+      
       const data = await res.json();
       const unread = data.data?.filter((n: any) => !n.isRead).length || 0;
       setUnreadCount(unread);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setUnreadCount(0); // Gracefully handle errors
     }
   }
 
