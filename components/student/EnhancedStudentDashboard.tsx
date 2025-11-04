@@ -69,22 +69,48 @@ export default function EnhancedStudentDashboard() {
     setLoading(true);
     try {
       // Fetch student profile
-      const profileRes = await fetch('/api/student/profile');
+      const profileRes = await fetch('/api/student/profile', {
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         setStudentProfile(profileData.data);
+      } else if (profileRes.status === 401 || profileRes.status === 403) {
+        // Authentication error - user needs to log in
+        console.error('Authentication error - redirecting to login');
+        router.push('/auth/login');
+        return;
+      } else {
+        console.error('Failed to fetch profile data, status:', profileRes.status);
+        throw new Error('Failed to fetch student profile');
       }
 
       // Fetch clearance data
-      const clearanceRes = await fetch('/api/student/clearance');
+      const clearanceRes = await fetch('/api/student/clearance', {
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (clearanceRes.ok) {
         const data = await clearanceRes.json();
         setClearanceData(data);
+      } else if (clearanceRes.status === 401 || clearanceRes.status === 403) {
+        // Authentication error - user needs to log in
+        console.error('Authentication error - redirecting to login');
+        router.push('/auth/login');
+        return;
       } else if (clearanceRes.status === 404) {
         // No clearance request yet
         setClearanceData(null);
       } else {
-        throw new Error('Failed to fetch clearance data');
+        console.error('Unexpected error status:', clearanceRes.status);
+        setClearanceData(null); // Gracefully handle other errors
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -99,6 +125,10 @@ export default function EnhancedStudentDashboard() {
     try {
       const response = await fetch('/api/clearance/initiate', {
         method: 'POST',
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
@@ -120,6 +150,7 @@ export default function EnhancedStudentDashboard() {
     try {
       const response = await fetch(`/api/student/clearance/step/${stepId}`, {
         method: 'POST',
+        credentials: 'include', // Include cookies for authentication
         headers: {
           'Content-Type': 'application/json',
         },
@@ -143,7 +174,12 @@ export default function EnhancedStudentDashboard() {
 
   const downloadClearanceSlip = async () => {
     try {
-      const response = await fetch('/api/student/clearance-certificate');
+      const response = await fetch('/api/student/clearance-certificate', {
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -250,7 +286,7 @@ export default function EnhancedStudentDashboard() {
                   </p>
                 </div>
                 <button
-                  onClick={initiateClearance}
+                  // onClick={initiateClearance}
                   disabled={initiating}
                   className="w-full py-3 px-6 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                 >

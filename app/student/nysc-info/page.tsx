@@ -52,9 +52,11 @@ export default function NYSCInfoPage() {
   async function fetchStudentData() {
     try {
       const res = await fetch('/api/student/profile', {
+        credentials: 'include', // Include cookies for authentication
         cache: 'no-store',
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Content-Type': 'application/json',
         }
       });
       const data = await res.json();
@@ -84,6 +86,7 @@ export default function NYSCInfoPage() {
     try {
       const res = await fetch('/api/student/nysc-info', {
         method: 'POST',
+        credentials: 'include', // Include cookies for authentication
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });

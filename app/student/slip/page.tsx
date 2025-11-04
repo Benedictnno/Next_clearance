@@ -34,10 +34,12 @@ export default function SlipPage() {
         try {
             // Fetch clearance status with no-cache to prevent stale data
             const clearanceRes = await fetch('/api/student/clearance-workflow/status', {
+                credentials: 'include', // Include cookies for authentication
                 cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
+                    'Pragma': 'no-cache',
+                    'Content-Type': 'application/json',
                 }
             });
             const clearanceData = await clearanceRes.json();
@@ -48,10 +50,12 @@ export default function SlipPage() {
 
             // Fetch student profile information with no-cache
             const profileRes = await fetch('/api/student/profile', {
+                credentials: 'include', // Include cookies for authentication
                 cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
+                    'Pragma': 'no-cache',
+                    'Content-Type': 'application/json',
                 }
             });
             const profileData = await profileRes.json();

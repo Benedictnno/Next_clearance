@@ -4,6 +4,9 @@ import { collections } from '@/lib/mongoCollections'
 import { clearanceEngine } from '@/lib/clearanceEngine'
 import Link from 'next/link'
 
+// Force dynamic rendering for this page
+export const dynamic = 'force-dynamic'
+
 export default async function StudentProfile() {
 	const session = await getSession()
 	if (!session) {
