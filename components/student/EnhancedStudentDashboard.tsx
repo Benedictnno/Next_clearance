@@ -82,7 +82,7 @@ export default function EnhancedStudentDashboard() {
       } else if (profileRes.status === 401 || profileRes.status === 403) {
         // Authentication error - user needs to log in
         console.error('Authentication error - redirecting to login');
-        router.push('/auth/login');
+        router.push('/');
         return;
       } else {
         console.error('Failed to fetch profile data, status:', profileRes.status);
