@@ -4,6 +4,9 @@ import { clearanceWorkflow } from '@/lib/clearanceWorkflow';
 import { applySecurityHeaders } from '@/lib/security';
 import { z } from 'zod';
 
+// Ensure Node.js runtime
+export const runtime = 'nodejs';
+
 /**
  * POST /api/student/clearance-workflow/submit
  * Submit clearance documents to a specific office

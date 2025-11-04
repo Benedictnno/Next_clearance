@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { CLEARANCE_OFFICES } from '@/lib/clearanceWorkflow';
 import { applySecurityHeaders } from '@/lib/security';
 
+// Ensure Node.js runtime
+export const runtime = 'nodejs';
+
 /**
  * GET /api/student/clearance-workflow/offices
  * Get list of all clearance offices

@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { clearanceWorkflow } from '@/lib/clearanceWorkflow';
 import { applySecurityHeaders } from '@/lib/security';
 
+// Ensure Node.js runtime
+export const runtime = 'nodejs';
+
 /**
  * GET /api/student/clearance-workflow/can-access-forms
  * Check if student can access final clearance forms (NYSC Form, Final Clearance Certificate)
