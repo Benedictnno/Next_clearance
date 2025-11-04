@@ -23,11 +23,30 @@ export default function StudentNotifications() {
 
   async function fetchNotifications() {
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetch('/api/notifications', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (res.status === 401 || res.status === 403) {
+        // Authentication error - redirect to login
+        router.push('/auth/login');
+        return;
+      }
+      
+      if (!res.ok) {
+        console.error('Failed to fetch notifications:', res.status);
+        setNotifications([]);
+        return;
+      }
+      
       const data = await res.json();
       setNotifications(data.data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }

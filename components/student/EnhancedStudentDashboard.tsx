@@ -69,7 +69,7 @@ export default function EnhancedStudentDashboard() {
     setLoading(true);
     try {
       // Fetch student profile
-      const profileRes = await fetch( `${process.env.NEXT_PUBLIC_API_URL}/api/student/profile`, {
+      const profileRes = await fetch( `/api/student/profile`, {
         credentials: 'include', // Include cookies for authentication
         headers: {
           'Content-Type': 'application/json',
