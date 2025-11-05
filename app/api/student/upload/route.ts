@@ -7,6 +7,9 @@ import { ObjectId } from 'mongodb';
 import { collections } from '@/lib/mongoCollections';
 import { notify } from '@/lib/helpers';
 import { security, applySecurityHeaders, withRateLimit } from '@/lib/security';
+import { put } from '@vercel/blob';
+
+export const runtime = 'nodejs';
 
 const uploadHandler = async (req: NextRequest) => {
   try {
@@ -88,17 +91,28 @@ const uploadHandler = async (req: NextRequest) => {
       String(session.userId)
     );
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'uploads');
-    await mkdir(uploadsDir, { recursive: true });
-
-    // Save file
-    const filePath = join(uploadsDir, secureFilename);
-    const buffer = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(buffer));
+    // Save file to storage
+    const useBlob = process.env.STORAGE_PROVIDER === 'vercel_blob' || !!process.env.VERCEL;
+    let fileUrl: string;
+    if (useBlob) {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        throw new Error('Cloud storage misconfigured: set `BLOB_READ_WRITE_TOKEN` in environment.');
+      }
+      const uploaded = await put(secureFilename, file, {
+        access: 'public',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+      fileUrl = uploaded.url;
+    } else {
+      const uploadsDir = join(process.cwd(), 'uploads');
+      await mkdir(uploadsDir, { recursive: true });
+      const filePath = join(uploadsDir, secureFilename);
+      const buffer = await file.arrayBuffer();
+      await writeFile(filePath, Buffer.from(buffer));
+      fileUrl = `/uploads/${secureFilename}`;
+    }
 
     // Update progress with file URL
-    const fileUrl = `/uploads/${secureFilename}`;
     await progress.updateOne(
       { _id: currentProgress._id },
       { 
@@ -145,6 +159,7 @@ const uploadHandler = async (req: NextRequest) => {
       { 
         success: false,
         error: error?.message || 'Upload failed. Please try again later.',
+        hint: process.env.VERCEL ? 'If running on Vercel, local disk is read-only. Set STORAGE_PROVIDER=vercel_blob and BLOB_READ_WRITE_TOKEN.' : undefined,
         details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
       },
       { status: 500 }

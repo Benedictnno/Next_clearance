@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { getCurrentUser } from '@/lib/auth';
+import { put } from '@vercel/blob';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,9 +38,12 @@ export async function POST(request: NextRequest) {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
 
-    // Create upload directory
+    const useBlob = process.env.STORAGE_PROVIDER === 'vercel_blob' || !!process.env.VERCEL;
+    // For local dev, write to public/uploads as before
     const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    await mkdir(uploadDir, { recursive: true });
+    if (!useBlob) {
+      await mkdir(uploadDir, { recursive: true });
+    }
 
     // Process all files
     const uploadedFiles = [];
@@ -62,17 +68,27 @@ export async function POST(request: NextRequest) {
       // Generate unique filename
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(7);
-      const fileExtension = path.extname(file.name);
+      const fileExtension = path.extname(file.name) || '';
       const fileName = `${timestamp}_${randomString}${fileExtension}`;
-      const filePath = path.join(uploadDir, fileName);
 
-      // Convert file to buffer and save
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      await writeFile(filePath, buffer);
+      let fileUrl: string;
+      if (useBlob) {
+        // Upload to Vercel Blob (public)
+        const uploaded = await put(fileName, file, {
+          access: 'public',
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        });
+        fileUrl = uploaded.url;
+      } else {
+        // Local filesystem (development)
+        const filePath = path.join(uploadDir, fileName);
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        await writeFile(filePath, buffer);
+        fileUrl = `/uploads/${fileName}`;
+      }
 
       // Add file info to results
-      const fileUrl = `/uploads/${fileName}`;
       uploadedFiles.push({
         originalName: file.name,
         fileName: fileName,
@@ -103,8 +119,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Upload error:', error);
+    const hint = process.env.VERCEL ? 'In Vercel, local filesystem is read-only. Set STORAGE_PROVIDER=vercel_blob and configure BLOB_READ_WRITE_TOKEN.' : undefined;
     return NextResponse.json(
-      { error: 'Upload failed', details: error.message },
+      { error: 'Upload failed', details: error.message, hint },
       { status: 500 }
     );
   }
