@@ -121,7 +121,8 @@ model Student {
   matricNumber     String   @unique
   firstName        String?
   lastName         String?
-  
+  admissionYear    Int?
+  yearsSinceAdmission Int?
   // Faculty and Department relations with named relations
   facultyId        String?  @db.ObjectId
   faculty          Faculty? @relation(name: "StudentFaculty", fields: [facultyId], references: [id])
@@ -129,7 +130,6 @@ model Student {
   department       Department? @relation(name: "StudentDepartment", fields: [departmentId], references: [id])
   
   level            String?
-  admissionYear    Int?     // Year student was admitted (e.g., 2020)
   phoneNumber      String?
   address          String?
   dateOfBirth      DateTime?
