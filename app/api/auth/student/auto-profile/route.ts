@@ -110,18 +110,19 @@ export async function POST(req: NextRequest) {
       }
 
       // Create student profile, then load with relations for response
+      const admissionYearNum = payload.admissionYear ? Number(payload.admissionYear) : undefined;
       const created = await prisma.student.create({
         data: {
           userId: user.id,
-          firstName: String(payload.name).split(" ")[0] ?? null,
-          lastName: String(payload.name).split(" ").slice(1).join(" ") ?? null,
+          firstName: String(payload.name).split(" ")[0] || undefined,
+          lastName: String(payload.name).split(" ").slice(1).join(" ") || undefined,
           matricNumber: String(payload.matricNumber),
           departmentId: department.id,
-          facultyId: department.facultyId,
-          admissionYear: Number(payload.admissionYear) || null,
-          phoneNumber: payload.phoneNumber ?? null,
-          gender: payload.gender ?? null,
-          level: payload.level ?? null,
+          facultyId: department.facultyId ?? undefined,
+          admissionYear: admissionYearNum,
+          phoneNumber: payload.phoneNumber || undefined,
+          gender: payload.gender || undefined,
+          level: payload.level || undefined,
         }
       });
 
