@@ -518,6 +518,88 @@ class ClearanceWorkflowService {
     }
   }
 
+  /**
+   * Get a single submission by ID
+   */
+  async getSubmissionById(submissionId: string): Promise<ClearanceSubmission | null> {
+    try {
+      if (!prisma) throw new Error("Prisma client not initialized");
+
+      const submission = await prisma.clearanceProgress.findUnique({
+        where: { id: submissionId },
+        include: {
+          request: {
+            include: { student: true }
+          },
+          documents: true
+        }
+      });
+
+      if (!submission) return null;
+
+      return {
+        id: submission.id,
+        studentId: submission.request.studentId,
+        studentName: `${submission.request.student.firstName} ${submission.request.student.lastName}`,
+        studentMatricNumber: submission.request.student.matricNumber,
+        officeId: submission.officeId,
+        officeName: submission.officeName,
+        documents: submission.documents.map(d => ({
+          fileName: d.fileName,
+          fileUrl: d.cloudinaryUrl,
+          fileType: d.mimeType,
+          uploadedAt: d.createdAt
+        })),
+        status: submission.status.toLowerCase() as any,
+        comment: submission.comment || undefined,
+        submittedAt: submission.createdAt,
+        reviewedAt: submission.actionedAt || undefined,
+        reviewedBy: submission.officerId || undefined
+      };
+
+    } catch (error) {
+      console.error('Error getting submission by ID:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if student can access final forms (NYSC, etc.)
+   * Returns true if all clearance steps are approved
+   */
+  async canAccessFinalForms(studentId: string): Promise<boolean> {
+    try {
+      if (!prisma) throw new Error("Prisma client not initialized");
+
+      const student = await prisma.student.findUnique({
+        where: { id: studentId },
+        include: { department: true }
+      });
+
+      if (!student) return false;
+
+      const request = await prisma.clearanceRequest.findFirst({
+        where: { studentId },
+        include: { steps: true }
+      });
+
+      if (!request) return false;
+
+      // Check if all offices are approved
+      const hodKey = student.departmentId ? `hod-${student.departmentId}` : 'hod-unknown';
+
+      // Count approved submissions
+      const approvedCount = request.steps.filter(s => s.status === 'APPROVED').length;
+
+      // Student needs all 10 offices approved
+      return approvedCount === CLEARANCE_OFFICES.length;
+
+    } catch (error) {
+      console.error('Error checking final forms access:', error);
+      return false;
+    }
+  }
+
   // ... (Other methods implement similarly, keeping brevity)
 
   async approveSubmission(submissionId: string, officerId: string, comment?: string) {

@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const user = await getCurrentUser();
-    
+
     if (!user?.student) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -96,7 +96,7 @@ export async function POST(
 ) {
   try {
     const user = await getCurrentUser();
-    
+
     if (!user?.student) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -144,7 +144,14 @@ export async function POST(
           stepNumber: step.stepNumber,
           officeName: step.name,
           status: StepStatus.PENDING,
-          officerId: step.assignedOfficerId
+          officerId: step.assignedOfficerId,
+          // Required fields for ClearanceProgress model
+          submissionKey: step.isDepartmentSpecific
+            ? `hod-${user.student.departmentId || stepId}`
+            : stepId,
+          officeId: step.isDepartmentSpecific ? 'hod' : stepId,
+          isDepartmentSpecific: step.isDepartmentSpecific,
+          studentDepartment: user.student.departmentId,
         }
       });
     }

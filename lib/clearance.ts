@@ -72,6 +72,10 @@ export async function initiateClearanceRequest(studentId: string) {
             officeName: step.name,
             status: StepStatus.PENDING,
             officerId: step.assignedOfficerId,
+            // Required fields for ClearanceProgress model
+            submissionKey: step.isDepartmentSpecific ? `hod-${step.id}` : step.id,
+            officeId: step.id,
+            isDepartmentSpecific: step.isDepartmentSpecific,
           })),
         },
       },
@@ -125,6 +129,13 @@ export async function initiateClearanceRequest(studentId: string) {
           officerId: step.isDepartmentSpecific
             ? student.department!.hodOfficer!.id
             : step.assignedOfficerId,
+          // Required fields for ClearanceProgress model
+          submissionKey: step.isDepartmentSpecific
+            ? `hod-${student.department!.id}`
+            : step.id,
+          officeId: step.isDepartmentSpecific ? 'hod' : step.id,
+          isDepartmentSpecific: step.isDepartmentSpecific,
+          studentDepartment: student.department?.id,
         })),
       },
     },
