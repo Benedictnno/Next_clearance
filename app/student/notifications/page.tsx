@@ -7,199 +7,169 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'INFO' | 'WARNING' | 'ACTION_REQUIRED' | 'SUCCESS';
-  isRead: boolean;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
   createdAt: string;
 }
 
-export default function StudentNotifications() {
+export default function NotificationsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const router = useRouter();
 
   useEffect(() => {
     fetchNotifications();
   }, []);
 
-  async function fetchNotifications() {
+  const fetchNotifications = async () => {
     try {
-      const res = await fetch('/api/notifications', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (res.status === 401 || res.status === 403) {
-        // Authentication error - redirect to login
-        router.push('/auth/login');
-        return;
+      const res = await fetch('/api/student/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.data || []);
       }
-      
-      if (!res.ok) {
-        console.error('Failed to fetch notifications:', res.status);
-        setNotifications([]);
-        return;
-      }
-      
-      const data = await res.json();
-      setNotifications(data.data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      setNotifications([]);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function markAsRead(notificationId: string) {
+  const markAsRead = async (id: string) => {
     try {
-      await fetch('/api/notifications/read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationId }),
-      });
-      
-      setNotifications(notifications.map(n => 
-        n.id === notificationId ? { ...n, isRead: true } : n
-      ));
+      await fetch(`/api/student/notifications/${id}/read`, { method: 'POST' });
+      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
-  }
+  };
 
-  async function markAllAsRead() {
-    try {
-      await fetch('/api/notifications/read-all', { method: 'POST' });
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-    }
-  }
-
-  function getNotificationIcon(type: string) {
+  const getTypeStyles = (type: string) => {
     switch (type) {
-      case 'SUCCESS':
-        return (
-          <div className="bg-green-100 rounded-full p-3">
-            <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
-      case 'WARNING':
-        return (
-          <div className="bg-yellow-100 rounded-full p-3">
-            <svg className="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
-      case 'ACTION_REQUIRED':
-        return (
-          <div className="bg-red-100 rounded-full p-3">
-            <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
-      default:
-        return (
-          <div className="bg-blue-100 rounded-full p-3">
-            <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
+      case 'success': return 'bg-green-50 border-green-300 text-green-800';
+      case 'warning': return 'bg-secondary-50 border-secondary-300 text-secondary-800';
+      case 'error': return 'bg-accent-50 border-accent-300 text-accent-800';
+      default: return 'bg-soft-200 border-soft-400 text-dark-800';
     }
-  }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'success': return '✓';
+      case 'warning': return '⚠';
+      case 'error': return '✗';
+      default: return 'ℹ';
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-soft-200">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-secondary-500 mx-auto"></div>
+          <p className="mt-4 text-dark-700 font-medium">Loading notifications...</p>
+        </div>
       </div>
     );
   }
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-soft-200">
+      {/* Gradient Ribbon Header */}
+      <div className="gradient-ribbon h-2"></div>
+
       {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="bg-white shadow-sm border-b border-soft-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
             <div>
-              <button
-                onClick={() => router.push('/student/dashboard')}
-                className="text-indigo-600 hover:text-indigo-700 flex items-center mb-2"
-              >
-                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back to Dashboard
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-              <p className="text-gray-600 mt-1">
-                {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
-              </p>
+              <h1 className="text-h2 text-primary-500 font-semibold">Notifications</h1>
+              <p className="text-label text-dark-600 mt-1">Stay updated with your clearance progress</p>
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
-              >
-                Mark All Read
-              </button>
-            )}
+            <button
+              onClick={() => router.push('/student/dashboard')}
+              className="btn-accent"
+            >
+              ← Back to Dashboard
+            </button>
           </div>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {notifications.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            <h3 className="mt-4 text-lg font-medium text-gray-900">No notifications yet</h3>
-            <p className="mt-2 text-gray-600">You&apos;ll see updates about your clearance here</p>
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="card glow-on-hover border-l-4 border-secondary-500">
+            <p className="text-label-sm text-dark-600 font-medium uppercase tracking-wide">Total</p>
+            <p className="text-h1 text-dark-900 font-bold mt-2">{notifications.length}</p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`bg-white rounded-lg shadow-md p-4 cursor-pointer transition ${
-                  notification.isRead ? 'opacity-75' : 'border-l-4 border-indigo-600'
-                }`}
-                onClick={() => !notification.isRead && markAsRead(notification.id)}
-              >
-                <div className="flex items-start space-x-4">
-                  {getNotificationIcon(notification.type)}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{notification.title}</h3>
-                        <p className="text-gray-600 text-sm mt-1">{notification.message}</p>
-                      </div>
-                      {!notification.isRead && (
-                        <span className="bg-indigo-600 text-white text-xs px-2 py-1 rounded-full">
-                          New
-                        </span>
-                      )}
+          <div className="card glow-on-hover border-l-4 border-accent-500">
+            <p className="text-label-sm text-dark-600 font-medium uppercase tracking-wide">Unread</p>
+            <p className="text-h1 text-accent-600 font-bold mt-2">
+              {notifications.filter(n => !n.read).length}
+            </p>
+          </div>
+          <div className="card glow-on-hover border-l-4 border-green-500">
+            <p className="text-label-sm text-dark-600 font-medium uppercase tracking-wide">Read</p>
+            <p className="text-h1 text-green-600 font-bold mt-2">
+              {notifications.filter(n => n.read).length}
+            </p>
+          </div>
+        </div>
+
+        {/* Notifications List */}
+        <div className="card">
+          {notifications.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-20 h-20 bg-soft-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-4xl">🔔</span>
+              </div>
+              <h3 className="text-body font-semibold text-dark-900">No notifications yet</h3>
+              <p className="mt-2 text-label text-dark-600">
+                You'll receive notifications about your clearance progress here
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-soft-400">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-6 hover:bg-soft-100 transition-all duration-120 ${!notification.read ? 'bg-secondary-50' : ''
+                    }`}
+                  onClick={() => !notification.read && markAsRead(notification.id)}
+                >
+                  <div className="flex items-start space-x-4">
+                    <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border-2 ${getTypeStyles(notification.type)}`}>
+                      <span className="text-2xl">{getTypeIcon(notification.type)}</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {new Date(notification.createdAt).toLocaleString()}
-                    </p>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-dark-900 text-body">
+                            {notification.title}
+                          </h3>
+                          <p className="text-label text-dark-700 mt-1">{notification.message}</p>
+                          <p className="text-label-sm text-dark-500 mt-2 font-mono">
+                            {new Date(notification.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        {!notification.read && (
+                          <span className="px-3 py-1 bg-secondary-500 text-white rounded-full text-label-sm font-semibold">
+                            New
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Footer Gradient */}
+      <div className="gradient-ribbon h-2 mt-12"></div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import ClearanceWorkflow from '@/components/student/ClearanceWorkflow';
+import UnifiedStudentDashboard from '@/components/student/UnifiedStudentDashboard';
 
 export default function ClearanceWorkflowPage() {
-  return <ClearanceWorkflow />;
+  return <UnifiedStudentDashboard />;
 }

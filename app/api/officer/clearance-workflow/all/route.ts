@@ -32,6 +32,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // ENFORCE OFFICER ISOLATION
+    // If officer has an assigned office, they can ONLY view that office
+    if (user.officer.assignedOfficeId && user.officer.assignedOfficeId !== officeId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - You can only view submissions for your assigned office' },
+        { status: 403 }
+      );
+    }
+
     // Get all submissions for this office
     // Don't filter by officerId - officers should see all submissions for their office
     const submissions = await clearanceWorkflow.getOfficeAllSubmissions(
@@ -48,9 +57,9 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching submissions:', error);
     const response = NextResponse.json(
-      { 
-        error: 'Failed to fetch submissions', 
-        message: error.message 
+      {
+        error: 'Failed to fetch submissions',
+        message: error.message
       },
       { status: 500 }
     );

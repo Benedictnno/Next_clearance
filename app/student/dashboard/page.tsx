@@ -1,8 +1,5 @@
-import EnhancedStudentDashboard from '@/components/student/EnhancedStudentDashboard';
+import UnifiedStudentDashboard from '@/components/student/UnifiedStudentDashboard';
 
-export default function StudentDashboard() {
-  return <EnhancedStudentDashboard />;
-} 
-
-
-
+export default function StudentDashboardPage() {
+  return <UnifiedStudentDashboard />;
+}

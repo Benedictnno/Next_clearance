@@ -129,6 +129,7 @@ model Student {
   department       Department? @relation(name: "StudentDepartment", fields: [departmentId], references: [id])
   
   level            String?
+  admissionYear    Int?     // Year student was admitted (e.g., 2020)
   phoneNumber      String?
   address          String?
   dateOfBirth      DateTime?
@@ -142,6 +143,7 @@ model Student {
   studentID         StudentID?
   nyscForm          NYSCForm?
   nyscInfo          NYSCInfo?
+  notificationOfResult NotificationOfResult?
   documents         Document[]
 }
 
@@ -154,9 +156,17 @@ model Officer {
   user         User     @relation(fields: [userId], references: [id])
   name         String?
   departmentId String?  @db.ObjectId
+  
+  // NEW: Enhanced System Fields
+  assignedOffices    String[] // Array of office IDs ["hod", "library", etc.]
+  assignedDepartmentId String? // If HOD, which department ID they manage
+  assignedDepartmentName String?
+  
+  // Keep legacy single fields for backward compat if needed, or deprecate
+  assignedOfficeId   String? 
+  assignedOfficeName String? 
 
   // This is the Officer -> Department relation (owning side)
-  // FIXED: Added onDelete/onUpdate to break the cycle
   department   Department? @relation(name: "OFFICERS_IN_DEPARTMENT", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   // This is the inverse side of Department.hodOfficer (no fields/references here)
@@ -246,27 +256,48 @@ model ClearanceRequest {
 }
 
 // -----------------------------
-// ClearanceProgress (instance per step)
+// ClearanceProgress (Effective ClearanceSubmission)
 // -----------------------------
 model ClearanceProgress {
   id                 String           @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Critical for Two-Tier Logic
+  submissionKey      String           // "hod-{deptId}" or "{officeId}"
+  
   requestId          String           @db.ObjectId
   request            ClearanceRequest @relation(fields: [requestId], references: [id])
-  stepId             String           @db.ObjectId
-  step               ClearanceStep    @relation(fields: [stepId], references: [id])
-  stepNumber         Int
+  
+  // Optional link to step if we keep using ClearanceStep model, otherwise relying on hardcoded config
+  stepId             String?          @db.ObjectId
+  step               ClearanceStep?   @relation(fields: [stepId], references: [id])
+  
+  // Flattened fields for easy access/filtering
+  officeId           String           // "hod", "library", etc.
   officeName         String
+  isDepartmentSpecific Boolean
+  studentDepartment  String?          // Snapshot for HOD filtering
+  
+  stepNumber         Int
   status             StepStatus       @default(PENDING)
+  
   officerId          String?          @db.ObjectId
   officer            Officer?         @relation(fields: [officerId], references: [id])
+  
   comment            String?
   actionedAt         DateTime?
+  
+  reviewedBy         String?          // ID of reviewer
+  
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   isDeleted          Boolean          @default(false)
   deletedAt          DateTime?
 
   documents          Document[]
+  
+  @@unique([requestId, submissionKey]) // Ensure one submission per office per request
+  @@index([submissionKey])
+  @@index([status])
 }
 
 // -----------------------------
@@ -385,4 +416,31 @@ model AuditLog {
   action    String
   meta      Json?
   createdAt DateTime @default(now())
+}
+
+// -----------------------------
+// Notification of Result Form
+// -----------------------------
+model NotificationOfResult {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId        String   @unique @db.ObjectId
+  student          Student  @relation(fields: [studentId], references: [id])
+  formNumber       String   @unique
+  formUrl          String
+  generatedDate    DateTime @default(now())
+  status           String   @default("generated")
+  
+  // Form data
+  name             String
+  faculty          String
+  department       String
+  matricNumber     String
+  courseOfStudy    String
+  graduationYear   String
+  cgpa             String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  isDeleted        Boolean  @default(false)
+  deletedAt        DateTime?
 }

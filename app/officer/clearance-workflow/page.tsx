@@ -1,5 +1,5 @@
-import OfficerClearanceWorkflow from '@/components/officer/OfficerClearanceWorkflow';
+import UnifiedOfficerDashboard from '@/components/officer/UnifiedOfficerDashboard';
 
 export default function OfficerClearanceWorkflowPage() {
-  return <OfficerClearanceWorkflow />;
+  return <UnifiedOfficerDashboard />;
 }

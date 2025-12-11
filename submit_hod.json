@@ -1,0 +1,10 @@
+{
+    "officeId": "department_hod",
+    "documents": [
+        {
+            "fileName": "hod_form.pdf",
+            "fileUrl": "https://example.com/hod_form.pdf",
+            "fileType": "application/pdf"
+        }
+    ]
+}

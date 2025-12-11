@@ -32,10 +32,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // ENFORCE OFFICER ISOLATION
+    // If officer has an assigned office, they can ONLY view that office
+    if (user.officer.assignedOfficeId && user.officer.assignedOfficeId !== officeId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - You can only view submissions for your assigned office' },
+        { status: 403 }
+      );
+    }
+
     // Get pending submissions for this office
-    // Don't filter by officerId - officers should see all submissions for their office
+    // Pass officer's assigned department ID if they are restricted
+    const departmentFilter = user.officer.assignedDepartmentId || undefined;
+
     const submissions = await clearanceWorkflow.getOfficePendingSubmissions(
-      officeId
+      officeId,
+      undefined, // officerId optional filter
+      departmentFilter
     );
 
     const response = NextResponse.json({
@@ -48,9 +61,9 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching pending submissions:', error);
     const response = NextResponse.json(
-      { 
-        error: 'Failed to fetch pending submissions', 
-        message: error.message 
+      {
+        error: 'Failed to fetch pending submissions',
+        message: error.message
       },
       { status: 500 }
     );

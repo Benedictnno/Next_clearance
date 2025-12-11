@@ -50,7 +50,6 @@ const OFFICES: Office[] = [
 export default function OfficerClearanceWorkflow() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [selectedOffice, setSelectedOffice] = useState<string>(OFFICES[0].id);
   const [submissions, setSubmissions] = useState<ClearanceSubmission[]>([]);
   const [statistics, setStatistics] = useState<Statistics>({
     total: 0,
@@ -58,6 +57,8 @@ export default function OfficerClearanceWorkflow() {
     approved: 0,
     rejected: 0,
   });
+  // Initialize slightly empty to wait for fetch
+  const [selectedOffice, setSelectedOffice] = useState<string>('');
   const [selectedSubmission, setSelectedSubmission] = useState<ClearanceSubmission | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [action, setAction] = useState<'approve' | 'reject'>('approve');
@@ -65,6 +66,24 @@ export default function OfficerClearanceWorkflow() {
   const [processing, setProcessing] = useState(false);
   const [viewMode, setViewMode] = useState<'pending' | 'all'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
+  const [officerInfo, setOfficerInfo] = useState<{ assignedOfficeId: string; assignedOfficeName: string } | null>(null);
+
+  // Fetch officer info first
+  useEffect(() => {
+    async function fetchOfficerInfo() {
+      try {
+        const res = await fetch('/api/officer/me');
+        const data = await res.json();
+        if (data.success && data.data.assignedOfficeId) {
+          setOfficerInfo(data.data);
+          setSelectedOffice(data.data.assignedOfficeId);
+        }
+      } catch (error) {
+        console.error('Error fetching officer info:', error);
+      }
+    }
+    fetchOfficerInfo();
+  }, []);
 
   const fetchSubmissions = useCallback(async () => {
     setLoading(true);
@@ -174,11 +193,11 @@ export default function OfficerClearanceWorkflow() {
   const visibleSubmissions = !searchQuery.trim()
     ? submissions
     : submissions.filter((s) => {
-        const name = (s.studentName || '').toLowerCase();
-        const matric = (s.studentMatricNumber || '').toLowerCase();
-        const q = searchQuery.toLowerCase();
-        return name.includes(q) || matric.includes(q);
-      });
+      const name = (s.studentName || '').toLowerCase();
+      const matric = (s.studentMatricNumber || '').toLowerCase();
+      const q = searchQuery.toLowerCase();
+      return name.includes(q) || matric.includes(q);
+    });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -203,23 +222,15 @@ export default function OfficerClearanceWorkflow() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Office Selector */}
+        {/* Office Header (Instead of Selector) */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Office</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            {OFFICES.map((office) => (
-              <button
-                key={office.id}
-                onClick={() => setSelectedOffice(office.id)}
-                className={`p-3 rounded-lg text-sm font-medium transition ${
-                  selectedOffice === office.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {office.name}
-              </button>
-            ))}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">
+              {officerInfo?.assignedOfficeName || 'Loading Assigned Office...'}
+            </h2>
+            <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+              Assigned Unit
+            </span>
           </div>
         </div>
 
@@ -248,21 +259,19 @@ export default function OfficerClearanceWorkflow() {
           <div className="flex space-x-2">
             <button
               onClick={() => setViewMode('pending')}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                viewMode === 'pending'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition ${viewMode === 'pending'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
             >
               Pending ({statistics.pending})
             </button>
             <button
               onClick={() => setViewMode('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                viewMode === 'all'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition ${viewMode === 'all'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
             >
               All Submissions ({statistics.total})
             </button>
@@ -366,13 +375,12 @@ export default function OfficerClearanceWorkflow() {
                       <div className="ml-13 space-y-2">
                         <div className="flex items-center space-x-4 text-sm">
                           <span
-                            className={`px-3 py-1 rounded-full font-medium ${
-                              submission.status === 'pending'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : submission.status === 'approved'
+                            className={`px-3 py-1 rounded-full font-medium ${submission.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : submission.status === 'approved'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
-                            }`}
+                              }`}
                           >
                             {submission.status.toUpperCase()}
                           </span>
@@ -533,17 +541,16 @@ export default function OfficerClearanceWorkflow() {
                 <button
                   onClick={handleAction}
                   disabled={processing || (action === 'reject' && !comment.trim())}
-                  className={`flex-1 px-6 py-3 rounded-lg font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition ${
-                    action === 'approve'
-                      ? 'bg-green-600 hover:bg-green-700'
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
+                  className={`flex-1 px-6 py-3 rounded-lg font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition ${action === 'approve'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                    }`}
                 >
                   {processing
                     ? 'Processing...'
                     : action === 'approve'
-                    ? 'Approve'
-                    : 'Reject'}
+                      ? 'Approve'
+                      : 'Reject'}
                 </button>
               </div>
             </div>

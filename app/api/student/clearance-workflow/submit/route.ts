@@ -36,6 +36,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = SubmitSchema.parse(body);
 
+    // Check 4-year eligibility requirement
+    if (user.student.admissionYear) {
+      const currentYear = new Date().getFullYear();
+      const yearsSpent = currentYear - user.student.admissionYear;
+
+      if (yearsSpent < 4) {
+        return NextResponse.json(
+          {
+            error: 'Eligibility Required',
+            message: `You must have spent at least 4 years to start clearance. You have spent ${yearsSpent} year(s).`,
+            yearsSpent,
+            yearsRequired: 4,
+            admissionYear: user.student.admissionYear
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Get student info
     const studentName = user.student.firstName && user.student.lastName
       ? `${user.student.firstName} ${user.student.lastName}`
@@ -69,12 +88,12 @@ export async function POST(request: NextRequest) {
     return applySecurityHeaders(response);
   } catch (error: any) {
     console.error('Error submitting clearance:', error);
-    
+
     if (error instanceof z.ZodError) {
       const response = NextResponse.json(
-        { 
-          error: 'Validation error', 
-          details: error.issues 
+        {
+          error: 'Validation error',
+          details: error.issues
         },
         { status: 400 }
       );
@@ -82,9 +101,9 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json(
-      { 
-        error: 'Failed to submit clearance', 
-        message: error.message 
+      {
+        error: 'Failed to submit clearance',
+        message: error.message
       },
       { status: 500 }
     );

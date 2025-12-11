@@ -15,10 +15,10 @@ export async function initiateClearanceRequest(studentId: string) {
 
   // For virtual users or users without department, create a simplified clearance request
   const isVirtualUser = !student || !student.departmentId;
-  
+
   if (isVirtualUser) {
     console.log('Creating simplified clearance for virtual user');
-    
+
     // Check for existing active request using studentId directly
     const existingRequest = await prisma.clearanceRequest.findFirst({
       where: {
@@ -36,9 +36,9 @@ export async function initiateClearanceRequest(studentId: string) {
 
     // Get only university-wide steps (not department-specific)
     const clearanceSteps = await prisma.clearanceStep.findMany({
-      where: { 
+      where: {
         isDeleted: false,
-        isDepartmentSpecific: false 
+        isDepartmentSpecific: false
       },
       orderBy: { stepNumber: 'asc' },
     });
@@ -82,8 +82,13 @@ export async function initiateClearanceRequest(studentId: string) {
   }
 
   // Original logic for users with departments
-  if (!student.department?.hodOfficer) {
-    throw new Error('Student department or HOD not assigned');
+  if (!student.department) {
+    throw new Error('Student is not assigned to any department');
+  }
+
+  if (!student.department.hodOfficer) {
+    console.error(`Department ${student.department.name} (ID: ${student.department.id}) has no HOD assigned.`);
+    throw new Error('Your department does not have an HOD assigned. Please contact support.');
   }
 
   // Check for existing active request

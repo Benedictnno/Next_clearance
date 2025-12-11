@@ -32,8 +32,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // ENFORCE OFFICER ISOLATION
+    // If officer has an assigned office, they can ONLY view that office
+    if (user.officer.assignedOfficeId && user.officer.assignedOfficeId !== officeId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - You can only view submissions for your assigned office' },
+        { status: 403 }
+      );
+    }
+
     // Get statistics
-    const stats = await clearanceWorkflow.getOfficeStatistics(officeId);
+    // Determine department filter if applicable (for HODs)
+    const departmentFilter = user.officer.departmentId || user.officer.assignedDepartmentId;
+    const stats = await clearanceWorkflow.getOfficeStatistics(officeId, departmentFilter);
 
     const response = NextResponse.json({
       success: true,
@@ -44,9 +55,9 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching statistics:', error);
     const response = NextResponse.json(
-      { 
-        error: 'Failed to fetch statistics', 
-        message: error.message 
+      {
+        error: 'Failed to fetch statistics',
+        message: error.message
       },
       { status: 500 }
     );

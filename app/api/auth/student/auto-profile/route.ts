@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const token = authHeader.split(" ")[1];
-    
+
     // Decode and validate JWT
     const decoded = await verifyToken(token as string);
     if (!decoded) {
@@ -42,10 +42,10 @@ export async function POST(req: NextRequest) {
 
     // Validate required fields in JWT payload
     const requiredFields = [
-      "_id", "email", "matricNumber", "role", "name", 
+      "_id", "email", "matricNumber", "role", "name",
       "department", "admissionYear", "yearsSinceAdmission"
     ] as const;
-    
+
     for (const field of requiredFields) {
       if (!payload[field as keyof typeof payload]) {
         return NextResponse.json(
@@ -96,16 +96,17 @@ export async function POST(req: NextRequest) {
 
     // If student doesn't exist, create a new profile
     if (!student) {
-      // Find department ID
-      const department = await prisma.department.findFirst({
+      // Find or create department
+      let department = await prisma.department.findFirst({
         where: { name: String(payload.department) }
       });
 
       if (!department) {
-        return NextResponse.json(
-          { success: false, message: "Department not found" },
-          { status: 400, headers: securityHeaders }
-        );
+        // Auto-create department if it doesn't exist
+        department = await prisma.department.create({
+          data: { name: String(payload.department) }
+        });
+        console.log(`Auto-created department: ${payload.department}`);
       }
 
       // Create student profile, then load with relations for response
@@ -116,6 +117,7 @@ export async function POST(req: NextRequest) {
           lastName: String(payload.name).split(" ").slice(1).join(" ") ?? null,
           matricNumber: String(payload.matricNumber),
           department: { connect: { id: department.id } },
+          admissionYear: Number(payload.admissionYear) || null,
           phoneNumber: payload.phoneNumber ?? null,
           gender: payload.gender ?? null,
           level: payload.level ?? null,
@@ -131,8 +133,8 @@ export async function POST(req: NextRequest) {
 
     // Check eligibility based on yearsSinceAdmission
     const eligible = Number(payload.yearsSinceAdmission) >= 4;
-    const notification = eligible 
-      ? null 
+    const notification = eligible
+      ? null
       : "You are not yet eligible to start clearance.";
 
     // Ensure student exists before formatting response
