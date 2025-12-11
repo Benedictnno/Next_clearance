@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
 
       // Create student profile, then load with relations for response
       const admissionYearNum = payload.admissionYear ? Number(payload.admissionYear) : undefined;
+      const yearsSinceAdmissionNum = payload.yearsSinceAdmission ? Number(payload.yearsSinceAdmission) : undefined;
       const created = await prisma.student.create({
         data: {
           userId: user.id,
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
           departmentId: department.id,
           facultyId: department.facultyId ?? undefined,
           admissionYear: admissionYearNum,
+          yearsSinceAdmission: yearsSinceAdmissionNum,
           phoneNumber: payload.phoneNumber || undefined,
           gender: payload.gender || undefined,
           level: payload.level || undefined,
