@@ -12,19 +12,25 @@ import { StepStatus } from '@prisma/client';
 
 // Ten clearance offices/steps
 export const CLEARANCE_OFFICES = [
-  { id: 'department_hod', name: 'Head of Department (HOD)', step: 1, isDepartmentSpecific: true },
-  { id: 'faculty_officer', name: 'Faculty Officer', step: 2, isDepartmentSpecific: false },
-  { id: 'university_librarian', name: 'University Librarian', step: 3, isDepartmentSpecific: false },
-  { id: 'exams_transcript', name: 'Exams and Transcript Office', step: 4, isDepartmentSpecific: false },
-  { id: 'bursary', name: 'Bursary', step: 5, isDepartmentSpecific: false },
-  { id: 'sports_council', name: 'Sports Council', step: 6, isDepartmentSpecific: false },
-  { id: 'alumni_association', name: 'Alumni Association', step: 7, isDepartmentSpecific: false },
-  { id: 'internal_audit', name: 'Internal Audit', step: 8, isDepartmentSpecific: false },
-  { id: 'student_affairs', name: 'Student Affairs', step: 9, isDepartmentSpecific: false },
-  { id: 'security_office', name: 'Security Office', step: 10, isDepartmentSpecific: false },
+  { id: 'department_hod', aliases: ['hod', 'department'], name: 'Head of Department (HOD)', step: 1, isDepartmentSpecific: true },
+  { id: 'faculty_officer', aliases: ['faculty', 'faculty_officer'], name: 'Faculty Officer', step: 2, isDepartmentSpecific: false },
+  { id: 'university_librarian', aliases: ['library', 'librarian'], name: 'University Librarian', step: 3, isDepartmentSpecific: false },
+  { id: 'exams_transcript', aliases: ['exams', 'transcript'], name: 'Exams and Transcript Office', step: 4, isDepartmentSpecific: false },
+  { id: 'bursary', aliases: ['bursar', 'bursary'], name: 'Bursary', step: 5, isDepartmentSpecific: false },
+  { id: 'sports_council', aliases: ['sports'], name: 'Sports Council', step: 6, isDepartmentSpecific: false },
+  { id: 'alumni_association', aliases: ['alumni'], name: 'Alumni Association', step: 7, isDepartmentSpecific: false },
+  { id: 'internal_audit', aliases: ['audit'], name: 'Internal Audit', step: 8, isDepartmentSpecific: false },
+  { id: 'student_affairs', aliases: ['student_affairs', 'student-affairs'], name: 'Student Affairs', step: 9, isDepartmentSpecific: false },
+  { id: 'security_office', aliases: ['security'], name: 'Security Office', step: 10, isDepartmentSpecific: false },
 ] as const;
 
 export type OfficeId = typeof CLEARANCE_OFFICES[number]['id'];
+
+// Helper to find office by ID or Alias
+function findOffice(idOrAlias: string) {
+  const norm = idOrAlias.toLowerCase();
+  return CLEARANCE_OFFICES.find(o => o.id === norm || (o.aliases as readonly string[]).includes(norm));
+}
 
 export interface ClearanceSubmission {
   id: string;
@@ -69,12 +75,14 @@ export interface StudentClearanceStatus {
 class ClearanceWorkflowService {
 
   private getSubmissionKey(officeId: string, departmentId?: string): string {
-    const office = CLEARANCE_OFFICES.find(o => o.id === officeId);
-    if (office?.isDepartmentSpecific) {
+    const office = findOffice(officeId);
+    if (!office) throw new Error(`Invalid office ID: ${officeId}`);
+
+    if (office.isDepartmentSpecific) {
       if (!departmentId) throw new Error("Department ID required for HOD submission key");
       return `hod-${departmentId}`;
     }
-    return officeId;
+    return office.id; // Always use canonical ID for submission key logic
   }
 
   /**
@@ -102,13 +110,13 @@ class ClearanceWorkflowService {
       }
 
       // 2. Validate Office
-      const office = CLEARANCE_OFFICES.find(o => o.id === officeId);
+      const office = findOffice(officeId);
       if (!office) {
         return { success: false, message: 'Invalid office ID' };
       }
 
       // 3. Logic: Submission Key
-      const submissionKey = this.getSubmissionKey(officeId, student.departmentId);
+      const submissionKey = this.getSubmissionKey(office.id, student.departmentId);
 
       // 3.5. Check if HOD is assigned for department-specific offices
       if (office.isDepartmentSpecific) {
@@ -131,9 +139,6 @@ class ClearanceWorkflowService {
         const hodKey = `hod-${student.departmentId}`;
         const hodSubmission = await prisma.clearanceProgress.findFirst({
           where: {
-            requestId: { not: undefined }, // Just ensuring it exists, actually we query by submissionKey + student via Request linkage? 
-            // Wait, ClearanceProgress is linked to Request, Request is linked to Student.
-            // Better query:
             request: { studentId: studentId },
             submissionKey: hodKey,
             status: 'APPROVED' // StepStatus enum
@@ -227,7 +232,7 @@ class ClearanceWorkflowService {
             'Clearance Resubmission',
             `${studentName} has resubmitted for ${office.name}`,
             'info',
-            { type: 'clearance_resubmission', officeId, studentId }
+            { type: 'clearance_resubmission', officeId: office.id, studentId }
           );
         }
 
@@ -239,7 +244,7 @@ class ClearanceWorkflowService {
           data: {
             requestId: request.id,
             submissionKey: submissionKey,
-            officeId: officeId,
+            officeId: office.id,
             officeName: office.name,
             isDepartmentSpecific: office.isDepartmentSpecific,
             studentDepartment: office.isDepartmentSpecific ? student.department?.name : null,
@@ -348,7 +353,7 @@ class ClearanceWorkflowService {
     try {
       if (!prisma) throw new Error("Prisma client not initialized");
 
-      const office = CLEARANCE_OFFICES.find(o => o.id === officeId);
+      const office = findOffice(officeId);
       if (!office) {
         // Fallback or specific handling for dynamic office IDs if any, otherwise throw
         // If officeId is not in the static list, we can't filter easily unless we assume it's a submission key?
@@ -365,7 +370,7 @@ class ClearanceWorkflowService {
           whereClause.submissionKey = { startsWith: 'hod-' };
         }
       } else {
-        whereClause.submissionKey = officeId;
+        whereClause.submissionKey = office.id;
       }
 
       const [pending, approved, rejected] = await Promise.all([
@@ -402,7 +407,7 @@ class ClearanceWorkflowService {
       // If HOD: key starts with "hod-". If officer has dept, key = "hod-{dept}".
       // If University: key = "{officeId}".
 
-      const office = CLEARANCE_OFFICES.find(o => o.id === officeId);
+      const office = findOffice(officeId);
       if (!office) throw new Error("Invalid office");
 
       let whereClause: any = {
@@ -416,7 +421,7 @@ class ClearanceWorkflowService {
           whereClause.submissionKey = { startsWith: 'hod-' };
         }
       } else {
-        whereClause.submissionKey = officeId;
+        whereClause.submissionKey = office.id;
       }
 
       const submissions = await prisma.clearanceProgress.findMany({
@@ -435,7 +440,7 @@ class ClearanceWorkflowService {
         studentId: s.request.studentId,
         studentName: `${s.request.student.firstName} ${s.request.student.lastName}`,
         studentMatricNumber: s.request.student.matricNumber,
-        officeId: s.officeId,
+        officeId: s.officeId, // This might be canonical or stored ID
         officeName: s.officeName,
         documents: s.documents.map(d => ({
           fileName: d.fileName,
@@ -466,7 +471,7 @@ class ClearanceWorkflowService {
     try {
       if (!prisma) throw new Error("Prisma client not initialized");
 
-      const office = CLEARANCE_OFFICES.find(o => o.id === officeId);
+      const office = findOffice(officeId);
       if (!office) throw new Error("Invalid office");
 
       let whereClause: any = {};
@@ -478,7 +483,7 @@ class ClearanceWorkflowService {
           whereClause.submissionKey = { startsWith: 'hod-' };
         }
       } else {
-        whereClause.submissionKey = officeId;
+        whereClause.submissionKey = office.id;
       }
 
       const submissions = await prisma.clearanceProgress.findMany({
