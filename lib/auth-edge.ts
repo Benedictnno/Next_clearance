@@ -9,8 +9,11 @@
 
 import { jwtVerify } from 'jose';
 
-// Use the same secret as the main auth module
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// Enforce secret presence
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not defined in environment variables');
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 const SECRET_KEY = new TextEncoder().encode(JWT_SECRET);
 
 /**

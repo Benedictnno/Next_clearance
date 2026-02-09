@@ -31,10 +31,32 @@ export async function middleware(request: NextRequest) {
   const userIdFromUrl = searchParams.get('userId');
 
   // ============================================
-  // STEP 1: Handle token in URL (from CoreEKSU redirect)
+  // STEP 1: Handle new reference-based auth flow (from CoreEKSU redirect)
+  // ============================================
+  const referenceFromUrl = searchParams.get('ref');
+  const isAuthCallback = pathname.startsWith('/api/auth/callback');
+
+  if (referenceFromUrl && !isAuthCallback) {
+    console.log('[Middleware] Detected reference-based auth, redirecting to callback handler...');
+
+    // Redirect to the auth callback route which will handle verification
+    // Preserve any returnUrl parameter
+    const callbackUrl = new URL('/api/auth/callback', request.url);
+    callbackUrl.searchParams.set('ref', referenceFromUrl);
+
+    const returnUrl = searchParams.get('returnUrl');
+    if (returnUrl && returnUrl.startsWith('/')) {
+      callbackUrl.searchParams.set('returnUrl', returnUrl);
+    }
+
+    return NextResponse.redirect(callbackUrl);
+  }
+
+  // ============================================
+  // STEP 2: Handle legacy token in URL (DEPRECATED - for backward compatibility)
   // ============================================
   if (tokenFromUrl) {
-    console.log('[Middleware] Processing token from URL...');
+    console.log('[Middleware] Processing legacy token from URL (DEPRECATED)...');
 
     const payload = await verifyToken(tokenFromUrl);
 

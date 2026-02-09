@@ -3,7 +3,10 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient, Role } from '@prisma/client';
 import * as readline from 'readline';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not defined in environment variables');
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/eksu_clearance';
 
 const prisma = new PrismaClient({

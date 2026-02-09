@@ -4,7 +4,10 @@ import { jwtVerify } from 'jose';
 import { prisma } from '@/lib/prisma'
 
 // Use environment variables for all secrets
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET is not defined in environment variables');
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 // Ensure this is the same secret used across the application
 const SECRET_KEY = new TextEncoder().encode(JWT_SECRET);
 
