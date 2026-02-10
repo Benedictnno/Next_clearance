@@ -69,11 +69,13 @@ export async function middleware(request: NextRequest) {
 
     // Determine redirect URL based on role
     let redirectUrl = '/';
-    if (payload.role === 'STUDENT') {
+    const userRole = (payload.role || '').toUpperCase();
+
+    if (userRole === 'STUDENT') {
       redirectUrl = '/student/dashboard';
-    } else if (payload.role === 'OFFICER') {
+    } else if (userRole === 'OFFICER') {
       redirectUrl = '/officer/dashboard';
-    } else if (payload.role === 'ADMIN' || payload.role === 'SUPER_ADMIN') {
+    } else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
       redirectUrl = '/admin/dashboard';
     }
 
@@ -86,9 +88,13 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.redirect(new URL(redirectUrl, request.url));
 
     // Set HttpOnly cookie for future requests
+    // Allow insecure cookies on localhost even in production mode
+    const isLocalhost = request.url.includes('localhost') || request.url.includes('127.0.0.1');
+    const isSecure = process.env.NODE_ENV === 'production' && !isLocalhost;
+
     response.cookies.set('auth_token', tokenFromUrl, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
@@ -98,7 +104,7 @@ export async function middleware(request: NextRequest) {
     if (payload.userId) {
       response.cookies.set('userId', payload.userId, {
         httpOnly: false, // Allow client-side access
-        secure: process.env.NODE_ENV === 'production',
+        secure: isSecure,
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7,
         path: '/',
@@ -122,9 +128,12 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.redirect(cleanUrl);
 
     // Store userId in readable cookie
+    const isLocalhost = request.url.includes('localhost') || request.url.includes('127.0.0.1');
+    const isSecure = process.env.NODE_ENV === 'production' && !isLocalhost;
+
     response.cookies.set('userId', userIdFromUrl, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
@@ -183,11 +192,13 @@ export async function middleware(request: NextRequest) {
       '/api/admin': ['ADMIN', 'SUPER_ADMIN'],
     };
 
+    const userRole = (payload.role || '').toUpperCase();
+
     for (const [prefix, allowedRoles] of Object.entries(roleChecks)) {
       if (pathname.startsWith(prefix)) {
         // SUPER_ADMIN can access everything
-        if (payload.role !== 'SUPER_ADMIN' && !allowedRoles.includes(payload.role)) {
-          console.log(`[Middleware] Role mismatch: ${payload.role} tried to access ${pathname}`);
+        if (userRole !== 'SUPER_ADMIN' && !allowedRoles.includes(userRole)) {
+          console.log(`[Middleware] Role mismatch: ${userRole} tried to access ${pathname}`);
 
           if (pathname.startsWith('/api/')) {
             return NextResponse.json(
@@ -198,9 +209,9 @@ export async function middleware(request: NextRequest) {
 
           // Redirect to their appropriate dashboard
           let correctDashboard = '/';
-          if (payload.role === 'STUDENT') correctDashboard = '/student/dashboard';
-          else if (payload.role === 'OFFICER') correctDashboard = '/officer/dashboard';
-          else if (payload.role === 'ADMIN') correctDashboard = '/admin/dashboard';
+          if (userRole === 'STUDENT') correctDashboard = '/student/dashboard';
+          else if (userRole === 'OFFICER') correctDashboard = '/officer/dashboard';
+          else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) correctDashboard = '/admin/dashboard';
 
           return NextResponse.redirect(new URL(correctDashboard, request.url));
         }

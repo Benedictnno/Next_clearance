@@ -428,9 +428,11 @@ function createVirtualUser(payload: JWTPayload) {
 
 export async function setAuthCookie(token: string) {
   const cookieStore = await cookies();
+  const isSecure = process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_APP_URL?.startsWith('https');
+
   cookieStore.set('auth_token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isSecure,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
   });

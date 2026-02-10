@@ -79,7 +79,8 @@ export async function GET(request: NextRequest) {
             redirectUrl = '/student/dashboard';
         } else if (normalizedRole === 'OFFICER') {
             redirectUrl = '/officer/dashboard';
-        } else if (normalizedRole === 'ADMIN' || normalizedRole === 'SUPER_ADMIN') {
+            // Check for both ADMIN and SUPER_ADMIN
+        } else if (['ADMIN', 'SUPER_ADMIN'].includes(normalizedRole)) {
             redirectUrl = '/admin/dashboard';
         }
 
@@ -92,10 +93,14 @@ export async function GET(request: NextRequest) {
         // 4. Establish Session (Set Cookie)
         const res = NextResponse.redirect(new URL(redirectUrl, request.url));
 
+        // Determine if we're on localhost to allow insecure cookies
+        const isLocalhost = request.url.includes('localhost') || request.url.includes('127.0.0.1');
+        const isSecure = process.env.NODE_ENV === 'production' && !isLocalhost;
+
         // Set the token in a secure, HTTP-only cookie
         res.cookies.set('auth_token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isSecure,
             sameSite: 'lax',
             maxAge: 60 * 60 * 24 * 7, // 7 days
             path: '/',
@@ -106,7 +111,7 @@ export async function GET(request: NextRequest) {
             const userId = user.id || user._id;
             res.cookies.set('userId', userId.toString(), {
                 httpOnly: false, // Allow client-side access
-                secure: process.env.NODE_ENV === 'production',
+                secure: isSecure,
                 sameSite: 'lax',
                 maxAge: 60 * 60 * 24 * 7,
                 path: '/',
