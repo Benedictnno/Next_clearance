@@ -1,5 +1,5 @@
 const CORE_API_URL = 'http://localhost:3000';
-const CORE_SYSTEM_SECRET = '962b32aafcf9995d6809f167941f4b2d5459dfe2b608afa72ac20492a83fb590';
+const CORE_SYSTEM_SECRET = process.env.CORE_SYSTEM_SECRET
 
 async function test() {
     console.log(`Connecting to ${CORE_API_URL}/api/verify-session...`);
