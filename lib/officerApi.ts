@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ObjectId } from 'mongodb';
 import { collections } from './mongoCollections';
 
 // Officer data structure matching expected third-party API
@@ -103,7 +104,7 @@ class MockOfficerApiProvider implements OfficerApiProvider {
   async getOfficer(id: string): Promise<OfficerApiResponse> {
     try {
       const { officers } = await collections();
-      const officer = await officers.findOne({ _id: new Object(id) });
+      const officer = await officers.findOne({ _id: new ObjectId(id) });
 
       if (!officer) {
         return {
@@ -143,7 +144,7 @@ class MockOfficerApiProvider implements OfficerApiProvider {
   async createOfficer(officerData: Omit<Officer, 'id' | 'createdAt' | 'updatedAt'>): Promise<OfficerApiResponse> {
     try {
       const { officers } = await collections();
-      
+
       const newOfficer = {
         name: officerData.name,
         email: officerData.email,
@@ -159,7 +160,7 @@ class MockOfficerApiProvider implements OfficerApiProvider {
       };
 
       const result = await officers.insertOne(newOfficer);
-      
+
       const createdOfficer = {
         id: String(result.insertedId),
         ...officerData,
@@ -183,14 +184,14 @@ class MockOfficerApiProvider implements OfficerApiProvider {
   async updateOfficer(id: string, officerData: Partial<Officer>): Promise<OfficerApiResponse> {
     try {
       const { officers } = await collections();
-      
+
       const updateData = {
         ...officerData,
         updatedAt: new Date(),
       };
 
       const result = await officers.updateOne(
-        { _id: new Object(id) },
+        { _id: new ObjectId(id) },
         { $set: updateData }
       );
 
@@ -202,7 +203,7 @@ class MockOfficerApiProvider implements OfficerApiProvider {
       }
 
       // Fetch updated officer
-      const updatedOfficer = await officers.findOne({ _id: new Object(id)  });
+      const updatedOfficer = await officers.findOne({ _id: new ObjectId(id) });
       if (!updatedOfficer) {
         return {
           success: false,
@@ -241,8 +242,8 @@ class MockOfficerApiProvider implements OfficerApiProvider {
   async deleteOfficer(id: string): Promise<OfficerApiResponse> {
     try {
       const { officers } = await collections();
-      
-      const result = await officers.deleteOne({ _id: new Object(id)  });
+
+      const result = await officers.deleteOne({ _id: new ObjectId(id) });
 
       if (result.deletedCount === 0) {
         return {
@@ -321,11 +322,11 @@ class ExternalOfficerApiProvider implements OfficerApiProvider {
 // Factory function to create the appropriate provider
 export function createOfficerApiProvider(config: OfficerApiConfig): OfficerApiProvider {
   const useExternalApi = process.env.USE_EXTERNAL_OFFICER_API === 'true';
-  
+
   if (useExternalApi) {
     return new ExternalOfficerApiProvider(config);
   }
-  
+
   return new MockOfficerApiProvider(config);
 }
 
@@ -345,8 +346,8 @@ export async function getOfficersByStep(stepNumber: number): Promise<Officer[]> 
   if (!response.success || !Array.isArray(response.data)) {
     return [];
   }
-  
-  return response.data.filter(officer => 
+
+  return response.data.filter(officer =>
     officer.assignedSteps.includes(stepNumber) && officer.isActive
   );
 }
@@ -356,6 +357,6 @@ export async function getOfficerById(id: string): Promise<Officer | null> {
   if (!response.success || !response.data) {
     return null;
   }
-  
+
   return Array.isArray(response.data) ? response.data[0] : response.data;
 }

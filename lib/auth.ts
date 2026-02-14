@@ -122,6 +122,7 @@ export async function getCurrentUser() {
         officer: {
           include: {
             department: true,
+            assignedSteps: true,
           },
         },
         admin: true,
@@ -212,6 +213,7 @@ export async function getCurrentUser() {
             officer: {
               include: {
                 department: true,
+                assignedSteps: true,
               },
             },
             admin: true,
@@ -275,6 +277,7 @@ export async function getCurrentUser() {
             officer: {
               include: {
                 department: true,
+                assignedSteps: true,
               },
             },
             admin: true,
@@ -344,7 +347,7 @@ export async function getCurrentUser() {
               faculty: true,
             },
           },
-          officer: { include: { department: true } },
+          officer: { include: { department: true, assignedSteps: true } },
           admin: true,
         },
       });
