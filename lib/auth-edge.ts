@@ -74,7 +74,12 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
 
         return normalized;
     } catch (error) {
-        console.error('[verifyTokenEdge] Token verification failed:', error);
+        const secretPreview = JWT_SECRET ? `${JWT_SECRET.substring(0, 4)}... (len: ${JWT_SECRET.length})` : 'MISSING';
+        console.error('[verifyTokenEdge] Token verification failed:', {
+            error: error instanceof Error ? error.message : error,
+            code: (error as any).code,
+            secretPreview: secretPreview
+        });
         return null;
     }
 }
