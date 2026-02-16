@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, requireRole } from '@/lib/auth';
-import { clearanceEngine } from '@/lib/clearanceEngine';
+import { requireRole } from '@/lib/auth';
+import { clearanceWorkflow } from '@/lib/clearanceWorkflow';
 import { pdfGenerator } from '@/lib/pdfGenerator';
 import { collections } from '@/lib/mongoCollections';
 
@@ -8,12 +8,12 @@ import { collections } from '@/lib/mongoCollections';
 export async function GET(request: NextRequest) {
   try {
     const session = await requireRole('STUDENT');
-    
+
     // Check if clearance is completed
-    const isCompleted = await clearanceEngine.isClearanceCompleted(String(session.user?.id));
+    const isCompleted = await clearanceWorkflow.canAccessFinalForms(String(session.user?.id));
     if (!isCompleted) {
-      return NextResponse.json({ 
-        error: 'Clearance not completed. Please complete all clearance steps first.' 
+      return NextResponse.json({
+        error: 'Clearance not completed. Please complete all clearance steps first.'
       }, { status: 400 });
     }
 
@@ -25,10 +25,10 @@ export async function GET(request: NextRequest) {
 
     // Get clearance steps data
     const stepsData = await pdfGenerator.getClearanceStepsForPDF(String(session.user?.id));
-    
+
     // Generate certificate number
     const certificateNumber = `EKSU-CC-${new Date().getFullYear()}-${String(session.user?.id).slice(-6)}`;
-    
+
     // Generate QR code data
     const qrData = `https://eksu-clearance.vercel.app/verify/certificate/${certificateNumber}`;
     const qrCode = await pdfGenerator.generateQRCode(qrData);
@@ -82,12 +82,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await requireRole('STUDENT');
-    
+
     // Check if clearance is completed
-    const isCompleted = await clearanceEngine.isClearanceCompleted(String(session.user?.id));
-    
+    const isCompleted = await clearanceWorkflow.canAccessFinalForms(String(session.user?.id));
+
     if (!isCompleted) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         available: false,
         message: 'Clearance not completed. Please complete all clearance steps first.'
       });
@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
     // Check if certificate already exists
     try {
       const { certificates } = await collections();
-      const existingCertificate = await certificates.findOne({ 
-        studentId: String(session.user?.id) 
+      const existingCertificate = await certificates.findOne({
+        studentId: String(session.user?.id)
       });
 
       if (existingCertificate) {

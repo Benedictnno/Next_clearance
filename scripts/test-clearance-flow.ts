@@ -39,8 +39,8 @@ async function main() {
     console.log(`Student Created: ${student.id} (Dept: ${department.name})`);
 
     // Reset any existing clearance
-    await prisma.clearanceRequest.deleteMany({ where: { studentId: student.id } });
     await prisma.clearanceProgress.deleteMany({ where: { request: { studentId: student.id } } });
+    await prisma.clearanceRequest.deleteMany({ where: { studentId: student.id } });
 
 
     console.log('\n2. Attempting to submit to Library (Tier 2) BEFORE HOD...');
@@ -61,25 +61,7 @@ async function main() {
     }
 
 
-    console.log('\n3. Submitting to HOD (Tier 1)...');
-    const result2 = await clearanceWorkflow.submitToOffice(
-        student.id,
-        'Test Student',
-        'TEST/FLOW/001',
-        'department_hod',
-        [{ fileName: 'hod_form.pdf', fileUrl: 'http://test', fileType: 'application/pdf' }]
-    );
-
-    if (!result2.success) {
-        console.error(`❌ FAILED: HOD submission failed: ${result2.message}`);
-        process.exit(1);
-    }
-    console.log('✅ SUCCESS: HOD submission accepted.');
-    const hodSubmissionId = result2.submissionId!;
-
-
-    console.log('\n4. Approving HOD Submission...');
-    // Create an Officer
+    console.log('\n3. Setting up HOD Officer...');
     const officerUser = await prisma.user.upsert({
         where: { email: 'test_officer_flow@eksu.edu.ng' },
         update: {},
@@ -98,7 +80,33 @@ async function main() {
         include: { officer: true }
     });
 
-    await clearanceWorkflow.approveSubmission(hodSubmissionId, officerUser.officer!.id, 'Approved by Test Script');
+    const officer = officerUser.officer!;
+    await prisma.department.update({
+        where: { id: department.id },
+        data: { hodOfficerId: officer.id }
+    });
+    console.log(`HOD Created and Assigned to ${department.name}: ${officer.id}`);
+
+
+    console.log('\n4. Submitting to HOD (Tier 1)...');
+    const result2 = await clearanceWorkflow.submitToOffice(
+        student.id,
+        'Test Student',
+        'TEST/FLOW/001',
+        'department_hod',
+        [{ fileName: 'hod_form.pdf', fileUrl: 'http://test', fileType: 'application/pdf' }]
+    );
+
+    if (!result2.success) {
+        console.error(`❌ FAILED: HOD submission failed: ${result2.message}`);
+        process.exit(1);
+    }
+    console.log('✅ SUCCESS: HOD submission accepted.');
+    const hodSubmissionId = result2.submissionId!;
+
+
+    console.log('\n5. Approving HOD Submission...');
+    await clearanceWorkflow.approveSubmission(hodSubmissionId, officer.id, 'Approved by Test Script');
     console.log('✅ HOD Approved.');
 
 

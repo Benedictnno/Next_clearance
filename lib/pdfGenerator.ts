@@ -1,7 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
-import { ObjectId } from 'mongodb';
-import { collections } from './mongoCollections';
+import { prisma } from './prisma';
 
 export interface StudentData {
   id: string;
@@ -147,7 +146,7 @@ class PDFGenerator {
     // Draw table rows
     data.steps.forEach((step, index) => {
       const rowY = stepsY - 50 - (index * 20);
-      
+
       page.drawText(step.stepNumber.toString(), {
         x: 50,
         y: rowY,
@@ -155,7 +154,7 @@ class PDFGenerator {
         font: helveticaFont,
         color: rgb(0, 0, 0),
       });
-      
+
       page.drawText(step.name, {
         x: 100,
         y: rowY,
@@ -163,7 +162,7 @@ class PDFGenerator {
         font: helveticaFont,
         color: rgb(0, 0, 0),
       });
-      
+
       page.drawText(step.status.toUpperCase(), {
         x: 350,
         y: rowY,
@@ -171,7 +170,7 @@ class PDFGenerator {
         font: helveticaFont,
         color: step.status === 'approved' ? rgb(0, 0.5, 0) : rgb(0.5, 0, 0),
       });
-      
+
       if (step.approvedDate) {
         page.drawText(step.approvedDate.toLocaleDateString(), {
           x: 450,
@@ -353,18 +352,20 @@ class PDFGenerator {
    */
   async getStudentDataForPDF(studentId: string): Promise<StudentData | null> {
     try {
-      const { students } = await collections();
-      const student = await students.findOne({ _id: new ObjectId(studentId) });
+      const student = await prisma.student.findUnique({
+        where: { id: studentId },
+        include: { department: true, faculty: true }
+      });
 
       if (!student) return null;
 
       return {
-        id: String(student._id),
+        id: student.id,
         name: `${student.firstName} ${student.lastName}`,
         matricNumber: student.matricNumber,
-        department: student.department,
-        faculty: student.faculty,
-        level: student.level,
+        department: student.department?.name || 'N/A',
+        faculty: student.faculty?.name || 'N/A',
+        level: student.level || 'N/A',
       };
     } catch (error) {
       console.error('Error getting student data for PDF:', error);
@@ -377,20 +378,25 @@ class PDFGenerator {
    */
   async getClearanceStepsForPDF(studentId: string): Promise<ClearanceStepData[]> {
     try {
-      const { progress, steps } = await collections();
+      const request = await prisma.clearanceRequest.findFirst({
+        where: { studentId },
+        include: {
+          steps: {
+            orderBy: { stepNumber: 'asc' }
+          }
+        }
+      });
 
-      const allSteps = await steps.find({}).sort({ stepNumber: 1 }).toArray();
-      const studentProgress = await progress.find({ studentId }).toArray();
+      if (!request) return [];
 
-      return allSteps.map(step => {
-        const stepProgress = studentProgress.find(p => String(p.stepId) === String(step._id));
+      return request.steps.map(step => {
         return {
           stepNumber: step.stepNumber,
-          name: step.name,
-          status: stepProgress?.status || 'pending',
-          approvedDate: stepProgress?.status === 'approved' ? stepProgress.updatedAt : undefined,
-          officerName: stepProgress?.officerId ? 'Officer' : undefined, // TODO: Get actual officer name
-          comment: stepProgress?.comment || undefined,
+          name: step.officeName,
+          status: step.status.toLowerCase() as 'approved' | 'rejected' | 'pending',
+          approvedDate: step.status === 'APPROVED' ? (step.actionedAt || undefined) : undefined,
+          officerName: step.officerId ? 'Authorized Officer' : undefined,
+          comment: step.comment || undefined,
         };
       });
     } catch (error) {

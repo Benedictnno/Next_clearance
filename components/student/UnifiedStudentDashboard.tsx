@@ -404,31 +404,31 @@ export default function UnifiedStudentDashboard() {
                             <div className="space-y-3">
                                 <button
                                     onClick={() => router.push('/student/profile')}
-                                    className="w-full text-left p-3 text-label font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black  hover:bg-green-600 rounded-lg transition-all duration-120"
                                 >
                                     👤 View Profile
                                 </button>
                                 <button
                                     onClick={() => router.push('/student/notifications')}
-                                    className="w-full text-left p-3 text-label font-medium text-white bg-secondary-600 hover:bg-secondary-700 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-green-700 rounded-lg transition-all duration-120"
                                 >
                                     🔔 Notifications
                                 </button>
                                 <button
                                     onClick={() => router.push('/student/slip')}
-                                    className="w-full text-left p-3 text-label font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-green-700 rounded-lg transition-all duration-120"
                                 >
                                     📄 View/Print Clearance Slip
                                 </button>
                                 <button
                                     onClick={() => router.push('/student/nysc-info')}
-                                    className="w-full text-left p-3 text-label font-medium text-white bg-secondary-600 hover:bg-secondary-700 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-green-700 rounded-lg transition-all duration-120"
                                 >
                                     📝 Fill NYSC Information
                                 </button>
                                 <button
                                     onClick={() => router.push('/student/nysc-form')}
-                                    className="w-full text-left p-3 text-label font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black  hover:bg-green-700 rounded-lg transition-all duration-120"
                                 >
                                     📥 Download NYSC Form
                                 </button>

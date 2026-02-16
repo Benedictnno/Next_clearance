@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, requireRole } from '@/lib/auth';
-import { clearanceEngine } from '@/lib/clearanceEngine';
+import { requireRole } from '@/lib/auth';
+import { clearanceWorkflow } from '@/lib/clearanceWorkflow';
 import { pdfGenerator } from '@/lib/pdfGenerator';
 import { collections } from '@/lib/mongoCollections';
 
@@ -15,12 +15,12 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 401 });
     }
-    
+
     // Check if clearance is completed
-    const isCompleted = await clearanceEngine.isClearanceCompleted(String(session.userId));
+    const isCompleted = await clearanceWorkflow.canAccessFinalForms(String(session.userId));
     if (!isCompleted) {
-      return NextResponse.json({ 
-        error: 'Clearance not completed. Please complete all clearance steps first.' 
+      return NextResponse.json({
+        error: 'Clearance not completed. Please complete all clearance steps first.'
       }, { status: 400 });
     }
 
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     // Generate form number
     const formNumber = `EKSU-NYSC-${new Date().getFullYear()}-${String(session.userId).slice(-6)}`;
-    
+
     // Generate QR code data
     const qrData = `https://eksu-clearance.vercel.app/verify/nysc/${formNumber}`;
     const qrCode = await pdfGenerator.generateQRCode(qrData);
@@ -92,12 +92,12 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 401 });
     }
-    
+
     // Check if clearance is completed
-    const isCompleted = await clearanceEngine.isClearanceCompleted(String(session.userId));
-    
+    const isCompleted = await clearanceWorkflow.canAccessFinalForms(String(session.userId));
+
     if (!isCompleted) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         available: false,
         message: 'Clearance not completed. Please complete all clearance steps first.'
       });
@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
     // Check if form already exists
     try {
       const { nyscForms } = await collections();
-      const existingForm = await nyscForms.findOne({ 
-        studentId: String(session.userId) 
+      const existingForm = await nyscForms.findOne({
+        studentId: String(session.userId)
       });
 
       if (existingForm) {

@@ -66,6 +66,8 @@ model User {
   admin         Admin?
   notifications Notification[]
   auditLogs     AuditLog[]
+  
+  @@map("users")
 }
 
 // -----------------------------
@@ -81,6 +83,8 @@ model Faculty {
 
   departments Department[]
   students    Student[]      @relation("StudentFaculty")
+
+  @@map("faculties")
 }
 
 // -----------------------------
@@ -105,10 +109,11 @@ model Department {
   isDeleted     Boolean  @default(false)
   deletedAt     DateTime?
 
-  // officers (inverse of Officer.department with named relation)
   officers      Officer[] @relation(name: "OFFICERS_IN_DEPARTMENT")
   students      Student[] @relation("StudentDepartment")
   clearanceSteps ClearanceStep[]
+
+  @@map("departments")
 }
 
 // -----------------------------
@@ -145,6 +150,8 @@ model Student {
   nyscInfo          NYSCInfo?
   notificationOfResult NotificationOfResult?
   documents         Document[]
+
+  @@map("students")
 }
 
 // -----------------------------
@@ -180,6 +187,8 @@ model Officer {
 
   approvals    ClearanceProgress[]
   assignedSteps ClearanceStep[] @relation(name: "ASSIGNED_TO_STEP")
+
+  @@map("officers")
 }
 
 // -----------------------------
@@ -194,6 +203,8 @@ model Admin {
   updatedAt DateTime @updatedAt
   isDeleted Boolean  @default(false)
   deletedAt DateTime?
+
+  @@map("admins")
 }
 
 // -----------------------------
@@ -230,6 +241,8 @@ model ClearanceStep {
   deletedAt       DateTime?
 
   clearanceProgress ClearanceProgress[]
+
+  @@map("clearance_steps")
 }
 
 // -----------------------------
@@ -253,6 +266,8 @@ model ClearanceRequest {
   steps         ClearanceProgress[]
   documents     Document[]            // request-level documents (optional)
   notifications Notification[]
+
+  @@map("clearance_requests")
 }
 
 // -----------------------------
@@ -298,6 +313,8 @@ model ClearanceProgress {
   @@unique([requestId, submissionKey]) // Ensure one submission per office per request
   @@index([submissionKey])
   @@index([status])
+
+  @@map("clearances")
 }
 
 // -----------------------------
@@ -323,6 +340,8 @@ model Document {
   updatedAt           DateTime @updatedAt
   isDeleted           Boolean  @default(false)
   deletedAt           DateTime?
+
+  @@map("documents")
 }
 
 // -----------------------------
@@ -342,6 +361,8 @@ model StudentID {
   updatedAt  DateTime @updatedAt
   isDeleted  Boolean  @default(false)
   deletedAt  DateTime?
+
+  @@map("student_id_cards")
 }
 
 // -----------------------------
@@ -359,6 +380,8 @@ model NYSCForm {
   updatedAt     DateTime @updatedAt
   isDeleted     Boolean  @default(false)
   deletedAt     DateTime?
+
+  @@map("nysc_forms")
 }
 
 // -----------------------------
@@ -386,6 +409,8 @@ model NYSCInfo {
   email             String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@map("nysc_info")
 }
 
 // -----------------------------
@@ -404,6 +429,8 @@ model Notification {
   payload    Json?
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
+
+  @@map("notifications")
 }
 
 // -----------------------------
@@ -416,6 +443,8 @@ model AuditLog {
   action    String
   meta      Json?
   createdAt DateTime @default(now())
+
+  @@map("audit_logs")
 }
 
 // -----------------------------
