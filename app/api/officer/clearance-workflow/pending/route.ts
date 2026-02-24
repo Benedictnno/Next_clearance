@@ -26,9 +26,12 @@ export async function GET(request: NextRequest) {
     const officeId = searchParams.get('officeId');
 
     if (!officeId) {
-      return NextResponse.json(
-        { error: 'Office ID is required' },
-        { status: 400 }
+      return applySecurityHeaders(
+        NextResponse.json({
+          success: true,
+          data: [],
+          count: 0,
+        })
       );
     }
 

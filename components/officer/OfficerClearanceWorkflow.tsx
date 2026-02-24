@@ -278,8 +278,10 @@ export default function OfficerClearanceWorkflow() {
           </div>
           <button
             onClick={() => {
-              fetchSubmissions();
-              fetchStatistics();
+              if (selectedOffice) {
+                fetchSubmissions();
+                fetchStatistics();
+              }
             }}
             className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium"
           >

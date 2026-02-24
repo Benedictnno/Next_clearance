@@ -607,6 +607,49 @@ class ClearanceWorkflowService {
 
   // ... (Other methods implement similarly, keeping brevity)
 
+  /**
+   * Get ALL submissions across all offices (global tracking)
+   */
+  async getGlobalSubmissions(): Promise<ClearanceSubmission[]> {
+    try {
+      if (!prisma) throw new Error("Prisma client not initialized");
+
+      const submissions = await prisma.clearanceProgress.findMany({
+        include: {
+          request: {
+            include: { student: true }
+          },
+          documents: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return submissions.map(s => ({
+        id: s.id,
+        studentId: s.request.studentId,
+        studentName: `${s.request.student.firstName} ${s.request.student.lastName}`,
+        studentMatricNumber: s.request.student.matricNumber,
+        officeId: s.officeId,
+        officeName: s.officeName,
+        documents: s.documents.map(d => ({
+          fileName: d.fileName,
+          fileUrl: d.cloudinaryUrl,
+          fileType: d.mimeType,
+          uploadedAt: d.createdAt
+        })),
+        status: s.status.toLowerCase() as any,
+        comment: s.comment || undefined,
+        submittedAt: s.createdAt,
+        reviewedAt: s.actionedAt || undefined,
+        reviewedBy: s.officerId || undefined
+      }));
+
+    } catch (error) {
+      console.error('Error getting global submissions:', error);
+      throw error;
+    }
+  }
+
   async approveSubmission(submissionId: string, officerId: string, comment?: string) {
     if (!prisma) throw new Error("No Prisma");
     await prisma.clearanceProgress.update({

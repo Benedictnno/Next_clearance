@@ -9,20 +9,20 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
-    
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const formData = await request.formData();
-    
+
     // Check for multiple files (field name 'files') or single file (field name 'file')
     const filesFromForm = formData.getAll('files') as File[];
     const singleFile = formData.get('file') as File;
-    
+
     // Determine if we're handling single or multiple files
     const files: File[] = filesFromForm.length > 0 ? filesFromForm : (singleFile ? [singleFile] : []);
-    
+
     if (files.length === 0) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
 
-    const useBlob = process.env.STORAGE_PROVIDER === 'vercel_blob' || !!process.env.VERCEL;
+    const useBlob = !!process.env.VERCEL && !!process.env.BLOB_READ_WRITE_TOKEN;
     // For local dev, write to public/uploads as before
     const uploadDir = path.join(process.cwd(), 'public', 'uploads');
     if (!useBlob) {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     // Process all files
     const uploadedFiles = [];
-    
+
     for (const file of files) {
       // Validate file size
       if (file.size > maxSize) {
@@ -74,8 +74,11 @@ export async function POST(request: NextRequest) {
       let fileUrl: string;
       if (useBlob) {
         // Upload to Vercel Blob (public)
-        const uploaded = await put(fileName, file, {
+        // Convert File to Buffer so content-length is known
+        const fileBuffer = Buffer.from(await file.arrayBuffer());
+        const uploaded = await put(fileName, fileBuffer, {
           access: 'public',
+          contentType: file.type,
           token: process.env.BLOB_READ_WRITE_TOKEN,
         });
         fileUrl = uploaded.url;

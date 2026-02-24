@@ -47,7 +47,7 @@ export default function UnifiedOfficerDashboard() {
     const [processing, setProcessing] = useState(false);
     const [viewMode, setViewMode] = useState<'pending' | 'all'>('pending');
     const [searchQuery, setSearchQuery] = useState('');
-    const [officerInfo, setOfficerInfo] = useState<{ assignedOfficeId: string; assignedOfficeName: string } | null>(null);
+    const [officerInfo, setOfficerInfo] = useState<{ id: string; name: string; assignedOfficeId: string; assignedOfficeName: string } | null>(null);
 
     useEffect(() => {
         async function fetchOfficerInfo() {
@@ -189,9 +189,17 @@ export default function UnifiedOfficerDashboard() {
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-h2 text-primary-500 font-semibold">
-                                Officer Dashboard
+                                Officer Workflow
                             </h1>
-                            <p className="text-label text-dark-600 mt-1">Review and process student clearance submissions</p>
+                            <div className="flex items-center space-x-2 mt-1">
+                                <p className="text-label text-dark-800 font-medium">
+                                    {officerInfo?.name || 'Officer'}
+                                </p>
+                                <span className="text-dark-400">•</span>
+                                <p className="text-label text-dark-600">
+                                    Assigned to {officerInfo?.assignedOfficeName || '...'}
+                                </p>
+                            </div>
                         </div>
                         <button
                             onClick={() => router.push('/officer/dashboard')}
@@ -263,8 +271,10 @@ export default function UnifiedOfficerDashboard() {
                     </div>
                     <button
                         onClick={() => {
-                            fetchSubmissions();
-                            fetchStatistics();
+                            if (selectedOffice) {
+                                fetchSubmissions();
+                                fetchStatistics();
+                            }
                         }}
                         className="btn-secondary"
                     >

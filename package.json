@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "prisma generate && next build --turbopack",
-    "start": "next start",
+    "dev": "node -r ./scripts/fix-cwd.js node_modules/next/dist/bin/next dev",
+    "build": "prisma generate && node -r ./scripts/fix-cwd.js node_modules/next/dist/bin/next build",
+    "start": "node -r ./scripts/fix-cwd.js node_modules/next/dist/bin/next start",
     "lint": "eslint",
     "seed:mongo": "tsx scripts/seed-mongo.ts",
     "seed:steps": "tsx scripts/seed-clearance-steps.ts",

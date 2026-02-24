@@ -31,6 +31,11 @@ export interface MiddlewareJWTPayload {
     gender?: string;
     admissionYear?: number;
     yearsSinceAdmission?: number;
+    // Officer fields
+    officeRole?: string;
+    assignedOffices?: string[];
+    assignedDepartmentId?: string;
+    assignedDepartmentName?: string;
 }
 
 /**
@@ -61,7 +66,12 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
         const normalized: MiddlewareJWTPayload = {
             userId: String(raw._id || raw.userId),
             email: String(raw.email),
-            role: String(raw.role || '').toUpperCase(),
+            role: (function () {
+                const r = String(raw.role || '').toUpperCase();
+                if (r === 'STAFF' || r === 'OFFICIAL') return 'OFFICER';
+                if (r === 'GENERAL') return 'STUDENT';
+                return r;
+            })(),
             matricNumber: raw.matricNumber ? String(raw.matricNumber) : undefined,
             name: raw.name ? String(raw.name) : undefined,
             phoneNumber: raw.phoneNumber ? String(raw.phoneNumber) : undefined,
@@ -70,6 +80,25 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
             gender: raw.gender ? String(raw.gender) : undefined,
             admissionYear: typeof raw.admissionYear === 'number' ? raw.admissionYear : undefined,
             yearsSinceAdmission: typeof raw.yearsSinceAdmission === 'number' ? raw.yearsSinceAdmission : undefined,
+            // Officer fields - handle 'position' fallback from Core platform
+            officeRole: (function () {
+                if (raw.officeRole) return String(raw.officeRole);
+                if (raw.position) {
+                    const pos = String(raw.position).toUpperCase();
+                    if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) return 'HOD';
+                    if (pos.includes('DEAN')) return 'DEAN';
+                    if (pos.includes('BURSAR')) return 'BURSAR';
+                    if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) return 'LIBRARY';
+                    if (pos.includes('REGISTRAR')) return 'REGISTRAR';
+                    if (pos.includes('SPORTS')) return 'SPORTS';
+                    if (pos.includes('CLINIC') || pos.includes('MEDICAL')) return 'CLINIC';
+                    return pos;
+                }
+                return undefined;
+            })(),
+            assignedOffices: Array.isArray(raw.assignedOffices) ? raw.assignedOffices : undefined,
+            assignedDepartmentId: raw.assignedDepartmentId ? String(raw.assignedDepartmentId) : undefined,
+            assignedDepartmentName: raw.assignedDepartmentName ? String(raw.assignedDepartmentName) : undefined,
         };
 
         return normalized;
