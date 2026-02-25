@@ -12,16 +12,16 @@ import { StepStatus } from '@prisma/client';
 
 // Ten clearance offices/steps
 export const CLEARANCE_OFFICES = [
-  { id: 'department_hod', aliases: ['hod', 'department'], name: 'Head of Department (HOD)', step: 1, isDepartmentSpecific: true },
-  { id: 'faculty_officer', aliases: ['faculty', 'faculty_officer'], name: 'Faculty Officer', step: 2, isDepartmentSpecific: false },
-  { id: 'university_librarian', aliases: ['library', 'librarian'], name: 'University Librarian', step: 3, isDepartmentSpecific: false },
-  { id: 'exams_transcript', aliases: ['exams', 'transcript'], name: 'Exams and Transcript Office', step: 4, isDepartmentSpecific: false },
-  { id: 'bursary', aliases: ['bursar', 'bursary'], name: 'Bursary', step: 5, isDepartmentSpecific: false },
-  { id: 'sports_council', aliases: ['sports'], name: 'Sports Council', step: 6, isDepartmentSpecific: false },
-  { id: 'alumni_association', aliases: ['alumni'], name: 'Alumni Association', step: 7, isDepartmentSpecific: false },
-  { id: 'internal_audit', aliases: ['audit'], name: 'Internal Audit', step: 8, isDepartmentSpecific: false },
-  { id: 'student_affairs', aliases: ['student_affairs', 'student-affairs'], name: 'Student Affairs', step: 9, isDepartmentSpecific: false },
-  { id: 'security_office', aliases: ['security'], name: 'Security Office', step: 10, isDepartmentSpecific: false },
+  { id: 'department_hod', aliases: ['hod', 'department'], name: 'Head of Department (HOD)', step: 1, isDepartmentSpecific: true, isFacultySpecific: false },
+  { id: 'faculty_officer', aliases: ['faculty', 'faculty_officer'], name: 'Faculty Officer', step: 2, isDepartmentSpecific: false, isFacultySpecific: true },
+  { id: 'university_librarian', aliases: ['library', 'librarian'], name: 'University Librarian', step: 3, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'exams_transcript', aliases: ['exams', 'transcript'], name: 'Exams and Transcript Office', step: 4, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'bursary', aliases: ['bursar', 'bursary'], name: 'Bursary', step: 5, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'sports_council', aliases: ['sports'], name: 'Sports Council', step: 6, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'alumni_association', aliases: ['alumni'], name: 'Alumni Association', step: 7, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'internal_audit', aliases: ['audit'], name: 'Internal Audit', step: 8, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'advancement_linkages', aliases: ['advancement', 'linkages'], name: 'Office of Advancement and Linkages', step: 9, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'security_office', aliases: ['security'], name: 'Security Office', step: 10, isDepartmentSpecific: false, isFacultySpecific: false },
 ] as const;
 
 export type OfficeId = typeof CLEARANCE_OFFICES[number]['id'];
@@ -51,6 +51,10 @@ export interface ClearanceSubmission {
   submittedAt: Date;
   reviewedAt?: Date;
   reviewedBy?: string;
+  // Audit fields
+  studentDepartment?: string;
+  studentFaculty?: string;
+  currentStep?: number;
 }
 
 export interface StudentClearanceStatus {
@@ -74,7 +78,7 @@ export interface StudentClearanceStatus {
 
 class ClearanceWorkflowService {
 
-  private getSubmissionKey(officeId: string, departmentId?: string): string {
+  private getSubmissionKey(officeId: string, departmentId?: string, facultyId?: string): string {
     const office = findOffice(officeId);
     if (!office) throw new Error(`Invalid office ID: ${officeId}`);
 
@@ -82,6 +86,12 @@ class ClearanceWorkflowService {
       if (!departmentId) throw new Error("Department ID required for HOD submission key");
       return `hod-${departmentId}`;
     }
+
+    if (office.isFacultySpecific) {
+      if (!facultyId) throw new Error("Faculty ID required for Faculty Officer submission key");
+      return `faculty-${facultyId}`;
+    }
+
     return office.id; // Always use canonical ID for submission key logic
   }
 
@@ -116,7 +126,7 @@ class ClearanceWorkflowService {
       }
 
       // 3. Logic: Submission Key
-      const submissionKey = this.getSubmissionKey(office.id, student.departmentId);
+      const submissionKey = this.getSubmissionKey(office.id, student.departmentId!, student.facultyId!);
 
       // 3.5. Check if HOD is assigned for department-specific offices
       if (office.isDepartmentSpecific) {
@@ -129,6 +139,20 @@ class ClearanceWorkflowService {
           return {
             success: false,
             message: `HOD Not Assigned: Your department (${student.department?.name}) does not have an assigned Head of Department yet. Please contact administration.`
+          };
+        }
+      }
+
+      if (office.isFacultySpecific) {
+        const faculty = await prisma.faculty.findUnique({
+          where: { id: student.facultyId! },
+          include: { facultyOfficer: true }
+        });
+
+        if (!faculty?.facultyOfficer) {
+          return {
+            success: false,
+            message: `Faculty Officer Not Assigned: Your faculty (${faculty?.name}) does not have an assigned Faculty Officer yet. Please contact administration.`
           };
         }
       }
@@ -617,7 +641,11 @@ class ClearanceWorkflowService {
       const submissions = await prisma.clearanceProgress.findMany({
         include: {
           request: {
-            include: { student: true }
+            include: {
+              student: {
+                include: { department: true, faculty: true }
+              }
+            }
           },
           documents: true
         },
@@ -641,11 +669,53 @@ class ClearanceWorkflowService {
         comment: s.comment || undefined,
         submittedAt: s.createdAt,
         reviewedAt: s.actionedAt || undefined,
-        reviewedBy: s.officerId || undefined
+        reviewedBy: s.officerId || undefined,
+        // Audit fields
+        studentDepartment: s.request.student.department?.name,
+        studentFaculty: s.request.student.faculty?.name,
+        currentStep: s.request.currentStep
       }));
 
     } catch (error) {
       console.error('Error getting global submissions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get ALL clearance requests (Audit/Oversight view)
+   */
+  async getGlobalRequests() {
+    try {
+      if (!prisma) throw new Error("Prisma client not initialized");
+
+      const requests = await prisma.clearanceRequest.findMany({
+        include: {
+          student: {
+            include: { department: true, faculty: true }
+          },
+          steps: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return requests.map(r => ({
+        id: r.id,
+        studentId: r.studentId,
+        studentName: `${r.student.firstName} ${r.student.lastName}`,
+        studentMatricNumber: r.student.matricNumber,
+        studentDepartment: r.student.department?.name,
+        studentFaculty: r.student.faculty?.name,
+        currentStep: r.currentStep,
+        status: r.status,
+        startedAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        completedSteps: r.steps.filter(s => s.status === 'APPROVED').length,
+        totalSteps: CLEARANCE_OFFICES.length,
+        isFullyCompleted: r.status === 'COMPLETED'
+      }));
+    } catch (error) {
+      console.error('Error getting global requests:', error);
       throw error;
     }
   }

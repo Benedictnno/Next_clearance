@@ -36,6 +36,7 @@ export interface MiddlewareJWTPayload {
     assignedOffices?: string[];
     assignedDepartmentId?: string;
     assignedDepartmentName?: string;
+    faculty?: string;
 }
 
 /**
@@ -68,7 +69,7 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
             email: String(raw.email),
             role: (function () {
                 const r = String(raw.role || '').toUpperCase();
-                if (r === 'STAFF' || r === 'OFFICIAL') return 'OFFICER';
+                if (['STAFF', 'OFFICIAL', 'OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'].includes(r)) return 'OFFICER';
                 if (r === 'GENERAL') return 'STUDENT';
                 return r;
             })(),
@@ -86,6 +87,9 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
                 if (raw.position) {
                     const pos = String(raw.position).toUpperCase();
                     if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) return 'HOD';
+                    if (pos.includes('FACULTY OFFICER')) return 'FACULTY_OFFICER';
+                    if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) return 'ADVANCEMENT';
+                    if (pos.includes('STUDENT AFFAIRS')) return 'OVERSEER';
                     if (pos.includes('DEAN')) return 'DEAN';
                     if (pos.includes('BURSAR')) return 'BURSAR';
                     if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) return 'LIBRARY';
@@ -94,11 +98,14 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
                     if (pos.includes('CLINIC') || pos.includes('MEDICAL')) return 'CLINIC';
                     return pos;
                 }
+                // Fallback for Student Affairs specifically if identity provider is sparse
+                if (String(raw.email).toLowerCase().includes('student_affair')) return 'OVERSEER';
                 return undefined;
             })(),
             assignedOffices: Array.isArray(raw.assignedOffices) ? raw.assignedOffices : undefined,
             assignedDepartmentId: raw.assignedDepartmentId ? String(raw.assignedDepartmentId) : undefined,
             assignedDepartmentName: raw.assignedDepartmentName ? String(raw.assignedDepartmentName) : undefined,
+            faculty: raw.faculty ? String(raw.faculty) : undefined,
         };
 
         return normalized;

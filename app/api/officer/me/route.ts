@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
         data: {
             id: user.officer.id,
             name: user.officer.name,
+            role: user.officer.role,
             assignedOfficeId: user.officer.assignedOfficeId,
             assignedOfficeName: user.officer.assignedOfficeName
         }

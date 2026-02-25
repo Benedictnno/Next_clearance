@@ -124,9 +124,9 @@ export const logout = async (): Promise<void> => {
     } catch (error) {
         console.error('Logout failed:', error);
     }
-    // Redirect to home or CoreEKSU login
+    // Redirect to CoreEKSU login
     if (typeof window !== "undefined") {
-        window.location.href = '/';
+        window.location.href = getCoreEKSULoginUrl();
     }
 };
 

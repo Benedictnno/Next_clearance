@@ -70,9 +70,12 @@ export async function middleware(request: NextRequest) {
     // Determine redirect URL based on role
     let redirectUrl = '/';
     const userRole = (payload.role || '').toUpperCase();
+    const officeRole = (payload.officeRole || '').toUpperCase();
 
     if (userRole === 'STUDENT') {
       redirectUrl = '/student/dashboard';
+    } else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) {
+      redirectUrl = '/officer/oversight';
     } else if (userRole === 'OFFICER') {
       redirectUrl = '/officer/dashboard';
     } else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
@@ -168,6 +171,24 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
+    // REDIRECT AUTHENTICATED USERS FROM ROOT TO DASHBOARD
+    if (pathname === '/') {
+      const payload = await verifyToken(tokenFromCookie);
+      if (payload) {
+        const userRole = (payload.role || '').toUpperCase();
+        const officeRole = (payload.officeRole || '').toUpperCase();
+        let dashboardUrl = '/';
+        if (userRole === 'STUDENT') dashboardUrl = '/student/dashboard';
+        else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) dashboardUrl = '/officer/oversight';
+        else if (userRole === 'OFFICER') dashboardUrl = '/officer/dashboard';
+        else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) dashboardUrl = '/admin/dashboard';
+
+        if (dashboardUrl !== '/') {
+          return NextResponse.redirect(new URL(dashboardUrl, request.url));
+        }
+      }
+    }
+
     // Verify the token is still valid
     const payload = await verifyToken(tokenFromCookie);
     if (!payload) {
@@ -185,20 +206,21 @@ export async function middleware(request: NextRequest) {
     // Check role-based access
     const roleChecks = {
       '/student': ['STUDENT'],
-      '/officer': ['OFFICER'],
+      '/officer': ['OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'],
       '/admin': ['ADMIN', 'SUPER_ADMIN'],
       '/api/student': ['STUDENT'],
-      '/api/officer': ['OFFICER'],
+      '/api/officer': ['OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'],
       '/api/admin': ['ADMIN', 'SUPER_ADMIN'],
     };
 
     const userRole = (payload.role || '').toUpperCase();
+    const officeRole = (payload.officeRole || '').toUpperCase();
 
     for (const [prefix, allowedRoles] of Object.entries(roleChecks)) {
       if (pathname.startsWith(prefix)) {
         // SUPER_ADMIN can access everything
-        if (userRole !== 'SUPER_ADMIN' && !allowedRoles.includes(userRole)) {
-          console.log(`[Middleware] Role mismatch: ${userRole} tried to access ${pathname}`);
+        if (userRole !== 'SUPER_ADMIN' && !allowedRoles.includes(userRole) && !allowedRoles.includes(officeRole)) {
+          console.log(`[Middleware] Role mismatch: ${userRole}/${officeRole} tried to access ${pathname}`);
 
           if (pathname.startsWith('/api/')) {
             return NextResponse.json(
@@ -210,6 +232,7 @@ export async function middleware(request: NextRequest) {
           // Redirect to their appropriate dashboard
           let correctDashboard = '/';
           if (userRole === 'STUDENT') correctDashboard = '/student/dashboard';
+          else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) correctDashboard = '/officer/oversight';
           else if (userRole === 'OFFICER') correctDashboard = '/officer/dashboard';
           else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) correctDashboard = '/admin/dashboard';
 

@@ -83,6 +83,10 @@ model Faculty {
 
   departments Department[]
   students    Student[]      @relation("StudentFaculty")
+  
+  // NEW: Faculty Officer relation (similar to HOD)
+  facultyOfficerId String?   @unique @db.ObjectId
+  facultyOfficer   Officer?  @relation(name: "FACULTY_OFFICER_OF_FACULTY", fields: [facultyOfficerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("faculties")
 }
@@ -176,8 +180,9 @@ model Officer {
   // This is the Officer -> Department relation (owning side)
   department   Department? @relation(name: "OFFICERS_IN_DEPARTMENT", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  // This is the inverse side of Department.hodOfficer (no fields/references here)
+  // Inverse sides
   hodDepartment Department? @relation(name: "HOD_OF_DEPARTMENT")
+  facultyOfFaculty Faculty? @relation(name: "FACULTY_OFFICER_OF_FACULTY")
 
   role         String?  // e.g., "HOD", "DEAN", "FACULTY_OFFICER"
   createdAt    DateTime @default(now())

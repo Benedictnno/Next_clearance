@@ -33,6 +33,7 @@ export interface JWTPayload {
   assignedOffices?: string[]; // ["hod", "library", etc.]
   assignedDepartmentId?: string;
   assignedDepartmentName?: string;
+  faculty?: string;
 }
 
 /**
@@ -60,7 +61,7 @@ export async function verifyToken(token: string) {
       email: raw.email,
       role: (function () {
         const r = String(raw.role || '').toUpperCase();
-        if (r === 'STAFF' || r === 'OFFICIAL') return 'OFFICER';
+        if (['STAFF', 'OFFICIAL', 'OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'].includes(r)) return 'OFFICER';
         if (r === 'GENERAL') return 'STUDENT';
         return r;
       })(),
@@ -79,19 +80,25 @@ export async function verifyToken(token: string) {
         if (raw.position) {
           const pos = String(raw.position).toUpperCase();
           if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) return 'HOD';
+          if (pos.includes('FACULTY OFFICER')) return 'FACULTY_OFFICER';
+          if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) return 'ADVANCEMENT';
           if (pos.includes('DEAN')) return 'DEAN';
           if (pos.includes('BURSAR')) return 'BURSAR';
           if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) return 'LIBRARY';
+          if (pos.includes('STUDENT AFFAIRS')) return 'OVERSEER';
           if (pos.includes('REGISTRAR')) return 'REGISTRAR';
           if (pos.includes('SPORTS')) return 'SPORTS';
           if (pos.includes('CLINIC') || pos.includes('MEDICAL')) return 'CLINIC';
           return pos;
         }
+        // Fallback for Student Affairs specifically if identity provider is sparse
+        if (String(raw.email).toLowerCase().includes('student_affair')) return 'OVERSEER';
         return undefined;
       })(),
       assignedOffices: Array.isArray(raw.assignedOffices) ? raw.assignedOffices : undefined,
       assignedDepartmentId: raw.assignedDepartmentId ? String(raw.assignedDepartmentId) : undefined,
       assignedDepartmentName: raw.assignedDepartmentName ? String(raw.assignedDepartmentName) : undefined,
+      faculty: raw.faculty ? String(raw.faculty) : undefined,
     };
 
     return normalized;
@@ -150,6 +157,112 @@ export async function getCurrentUser() {
   } catch (dbError) {
     console.error('Prisma error in getCurrentUser:', dbError);
     user = null;
+  }
+
+  // JIT Sync: If user exists but role has changed or officer record is missing
+  if (user && payload.role === 'OFFICER' && (!user.officer || user.role !== 'OFFICER')) {
+    console.log(`Syncing role change for existing user ${user.email}: ${user.role} -> OFFICER`);
+    try {
+      // Update role and externalId
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          role: 'OFFICER',
+          externalId: user.externalId || lookupUserId
+        }
+      });
+
+      if (!user.officer) {
+        // Find or create department
+        let department = null;
+        if (payload.department) {
+          department = await prisma.department.findFirst({
+            where: { name: payload.department }
+          });
+          if (!department) {
+            department = await prisma.department.create({
+              data: { name: payload.department }
+            });
+          }
+        }
+
+        // Determine assigned offices
+        let assignedOffices: string[] = [];
+        if (payload.assignedOffices && Array.isArray(payload.assignedOffices)) {
+          assignedOffices = payload.assignedOffices;
+        } else if (payload.officeRole) {
+          const roleToOffice: Record<string, string[]> = {
+            'HOD': ['hod'],
+            'FACULTY_OFFICER': ['faculty_officer'],
+            'ADVANCEMENT': ['advancement_linkages'],
+            'DEAN': ['dean'],
+            'BURSAR': ['bursar'],
+            'LIBRARIAN': ['library'],
+            'LIBRARY': ['library'],
+            'OVERSEER': [], // Overseers have global view but no specific office submissions
+            'REGISTRAR': ['registrar'],
+            'SPORTS': ['sports'],
+            'CLINIC': ['clinic'],
+          };
+          assignedOffices = roleToOffice[payload.officeRole.toUpperCase()] || [];
+        }
+
+        // Find or create faculty if provided
+        let faculty = null;
+        if (payload.faculty) {
+          faculty = await prisma.faculty.findFirst({
+            where: { name: payload.faculty }
+          });
+          if (!faculty) {
+            faculty = await prisma.faculty.create({
+              data: { name: payload.faculty }
+            });
+          }
+        }
+
+        // Create officer record
+        const officer = await prisma.officer.create({
+          data: {
+            userId: user.id,
+            name: user.name || payload.name || 'Officer',
+            departmentId: department?.id,
+            role: payload.officeRole,
+            assignedOffices,
+            assignedDepartmentId: payload.assignedDepartmentId || (payload.officeRole?.toUpperCase() === 'HOD' ? department?.id : undefined),
+            assignedOfficeId: (assignedOffices[0] || null) as string | null,
+            assignedOfficeName: payload.officeRole || 'Officer',
+          }
+        });
+
+        // Link as HOD if applicable
+        if (payload.officeRole?.toUpperCase() === 'HOD' && department?.id) {
+          await prisma.department.update({
+            where: { id: department.id },
+            data: { hodOfficerId: officer.id }
+          });
+        }
+
+        // Link as Faculty Officer if applicable
+        if (payload.officeRole?.toUpperCase() === 'FACULTY_OFFICER' && faculty?.id) {
+          await prisma.faculty.update({
+            where: { id: faculty.id },
+            data: { facultyOfficerId: officer.id }
+          });
+        }
+      }
+
+      // Re-fetch to ensure user object is complete
+      user = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: {
+          student: { include: { department: { include: { hodOfficer: true } }, faculty: true } },
+          officer: { include: { department: true, assignedSteps: true } },
+          admin: true,
+        }
+      });
+    } catch (syncError) {
+      console.error('Error in JIT role sync:', syncError);
+    }
   }
 
   // If user doesn't exist, create them in the database
@@ -272,6 +385,19 @@ export async function getCurrentUser() {
           assignedOffices = roleToOffice[payload.officeRole.toUpperCase()] || [];
         }
 
+        // Find or create faculty if provided
+        let faculty = null;
+        if (payload.faculty) {
+          faculty = await prisma.faculty.findFirst({
+            where: { name: payload.faculty }
+          });
+          if (!faculty) {
+            faculty = await prisma.faculty.create({
+              data: { name: payload.faculty }
+            });
+          }
+        }
+
         // Create Officer record with full clearance workflow support
         const officer = await prisma.officer.create({
           data: {
@@ -282,13 +408,13 @@ export async function getCurrentUser() {
             assignedOffices: assignedOffices,
             assignedDepartmentId: payload.assignedDepartmentId || (payload.officeRole?.toUpperCase() === 'HOD' ? department?.id : undefined),
             assignedDepartmentName: payload.assignedDepartmentName || (payload.officeRole?.toUpperCase() === 'HOD' ? department?.name : undefined),
-            assignedOfficeId: assignedOffices[0] || undefined,
-            assignedOfficeName: payload.officeRole,
+            assignedOfficeId: (assignedOffices[0] || null) as string | null,
+            assignedOfficeName: payload.officeRole || 'Officer',
           },
         });
         console.log('Created new officer record with assignedOffices:', assignedOffices);
 
-        // If this is an HOD, link them to the department immediately
+        // Link as HOD if applicable
         if (payload.officeRole?.toUpperCase() === 'HOD' && department?.id) {
           try {
             await prisma.department.update({
@@ -298,6 +424,19 @@ export async function getCurrentUser() {
             console.log(`Linked HOD ${officer.id} to department ${department.id}`);
           } catch (hodLinkError) {
             console.error('Error linking HOD to department during creation:', hodLinkError);
+          }
+        }
+
+        // Link as Faculty Officer if applicable
+        if (payload.officeRole?.toUpperCase() === 'FACULTY_OFFICER' && faculty?.id) {
+          try {
+            await prisma.faculty.update({
+              where: { id: faculty.id },
+              data: { facultyOfficerId: officer.id }
+            });
+            console.log(`Linked Faculty Officer ${officer.id} to faculty ${faculty.id}`);
+          } catch (facultyLinkError) {
+            console.error('Error linking Faculty Officer to faculty during creation:', facultyLinkError);
           }
         }
 
@@ -442,24 +581,44 @@ export async function getCurrentUser() {
     };
 
     let payloadOffices = payload.assignedOffices;
+    // Map position/role to explicit office IDs if assignedOffices is missing
     if ((!payloadOffices || payloadOffices.length === 0) && payload.officeRole) {
       payloadOffices = roleToOffice[payload.officeRole.toUpperCase()] || [];
     }
 
-    // Update if role or assignedOffices are missing
+    // Determine the office name for UI display
+    const officeNameMapping: Record<string, string> = {
+      'HOD': 'Departmental Office',
+      'LIBRARY': 'University Library',
+      'BURSAR': 'Bursary',
+      'SPORTS': 'Sports Centre',
+      'CLINIC': 'Medical Centre',
+      'DEAN': 'Faculty Office',
+      'REGISTRAR': 'Registry',
+    };
+
+    const targetOfficeName = payload.officeRole ? (officeNameMapping[payload.officeRole.toUpperCase()] || payload.officeRole) : user.officer.assignedOfficeName;
+
+    const newAssignedOfficeId = (payloadOffices?.[0] || (user.officer.assignedOfficeId === 'staff' ? null : user.officer.assignedOfficeId)) as string | null;
+
+    // Aggressively update if name, role, or offices are missing or different
     if (
+      (!user.officer.name && payload.name) ||
       (!user.officer.role && payload.officeRole) ||
-      (user.officer.assignedOffices.length === 0 && payloadOffices && payloadOffices.length > 0)
+      (user.officer.assignedOffices.length === 0 && payloadOffices && payloadOffices.length > 0) ||
+      (!user.officer.assignedOfficeName && targetOfficeName) ||
+      (user.officer.assignedOfficeId === 'staff')
     ) {
       console.log('Syncing officer record for existing user:', user.email);
       try {
         const updatedOfficer = await prisma.officer.update({
           where: { id: user.officer.id },
           data: {
+            name: user.officer.name || payload.name,
             role: payload.officeRole || user.officer.role,
             assignedOffices: payloadOffices && payloadOffices.length > 0 ? payloadOffices : user.officer.assignedOffices,
-            assignedOfficeId: payloadOffices?.[0] || user.officer.assignedOfficeId,
-            assignedOfficeName: payload.officeRole || user.officer.assignedOfficeName,
+            assignedOfficeId: newAssignedOfficeId,
+            assignedOfficeName: targetOfficeName || user.officer.assignedOfficeName,
           }
         });
         user.officer = { ...user.officer, ...updatedOfficer };
