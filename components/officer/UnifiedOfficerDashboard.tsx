@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import DocumentCarouselModal from './DocumentCarouselModal';
 
 interface ClearanceSubmission {
     id: string;
@@ -48,6 +49,11 @@ export default function UnifiedOfficerDashboard() {
     const [viewMode, setViewMode] = useState<'pending' | 'all'>('pending');
     const [searchQuery, setSearchQuery] = useState('');
     const [officerInfo, setOfficerInfo] = useState<{ id: string; name: string; assignedOfficeId: string; assignedOfficeName: string } | null>(null);
+
+    // Document Viewer State
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerDocuments, setViewerDocuments] = useState<Array<{ fileName: string; fileUrl: string; fileType: string }>>([]);
+    const [viewerIndex, setViewerIndex] = useState(0);
 
     useEffect(() => {
         async function fetchOfficerInfo() {
@@ -152,6 +158,12 @@ export default function UnifiedOfficerDashboard() {
         setAction(actionType);
         setShowModal(true);
         setComment('');
+    };
+
+    const openDocumentViewer = (docs: any[], index: number) => {
+        setViewerDocuments(docs);
+        setViewerIndex(index);
+        setViewerOpen(true);
     };
 
     const formatDate = (dateString: string) => {
@@ -379,18 +391,18 @@ export default function UnifiedOfficerDashboard() {
                                                         <p className="text-label font-medium text-dark-700 mb-2">
                                                             Documents ({submission.documents.length}):
                                                         </p>
-                                                        <div className="space-y-1">
+                                                        <div className="flex flex-wrap gap-2">
                                                             {submission.documents.map((doc, idx) => (
-                                                                <a
+                                                                <button
                                                                     key={idx}
-                                                                    href={doc.fileUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="flex items-center space-x-2 text-label text-secondary-600 hover:text-secondary-800 font-medium"
+                                                                    onClick={() => openDocumentViewer(submission.documents, idx)}
+                                                                    className="flex items-center space-x-2 px-3 py-2 bg-soft-200 hover:bg-soft-300 rounded-lg text-label text-dark-800 transition-colors border border-soft-400 group"
                                                                 >
-                                                                    <span>📄</span>
-                                                                    <span>{doc.fileName}</span>
-                                                                </a>
+                                                                    <span className="group-hover:scale-110 transition-transform">
+                                                                        {doc.fileType.includes('image') ? '🖼️' : '📄'}
+                                                                    </span>
+                                                                    <span className="font-medium">{doc.fileName}</span>
+                                                                </button>
                                                             ))}
                                                         </div>
                                                     </div>
@@ -517,6 +529,14 @@ export default function UnifiedOfficerDashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Document Viewer Modal */}
+            <DocumentCarouselModal
+                isOpen={viewerOpen}
+                onClose={() => setViewerOpen(false)}
+                documents={viewerDocuments}
+                initialIndex={viewerIndex}
+            />
 
             {/* Footer Gradient */}
             <div className="gradient-ribbon h-2 mt-12"></div>

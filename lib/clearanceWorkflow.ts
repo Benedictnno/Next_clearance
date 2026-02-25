@@ -13,11 +13,11 @@ import { StepStatus } from '@prisma/client';
 // Ten clearance offices/steps
 export const CLEARANCE_OFFICES = [
   { id: 'department_hod', aliases: ['hod', 'department'], name: 'Head of Department (HOD)', step: 1, isDepartmentSpecific: true, isFacultySpecific: false },
-  { id: 'faculty_officer', aliases: ['faculty', 'faculty_officer'], name: 'Faculty Officer', step: 2, isDepartmentSpecific: false, isFacultySpecific: true },
+  { id: 'faculty_officer', aliases: ['faculty', 'faculty_officer', 'dean'], name: 'Faculty Officer', step: 2, isDepartmentSpecific: false, isFacultySpecific: true },
   { id: 'university_librarian', aliases: ['library', 'librarian'], name: 'University Librarian', step: 3, isDepartmentSpecific: false, isFacultySpecific: false },
-  { id: 'exams_transcript', aliases: ['exams', 'transcript'], name: 'Exams and Transcript Office', step: 4, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'exams_transcript', aliases: ['exams', 'transcript', 'registrar'], name: 'Exams and Transcript Office', step: 4, isDepartmentSpecific: false, isFacultySpecific: false },
   { id: 'bursary', aliases: ['bursar', 'bursary'], name: 'Bursary', step: 5, isDepartmentSpecific: false, isFacultySpecific: false },
-  { id: 'sports_council', aliases: ['sports'], name: 'Sports Council', step: 6, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'sports_council', aliases: ['sports', 'clinic'], name: 'Sports Council', step: 6, isDepartmentSpecific: false, isFacultySpecific: false },
   { id: 'alumni_association', aliases: ['alumni'], name: 'Alumni Association', step: 7, isDepartmentSpecific: false, isFacultySpecific: false },
   { id: 'internal_audit', aliases: ['audit'], name: 'Internal Audit', step: 8, isDepartmentSpecific: false, isFacultySpecific: false },
   { id: 'advancement_linkages', aliases: ['advancement', 'linkages'], name: 'Office of Advancement and Linkages', step: 9, isDepartmentSpecific: false, isFacultySpecific: false },
@@ -108,12 +108,14 @@ class ClearanceWorkflowService {
   ): Promise<{ success: boolean; message: string; submissionId?: string }> {
     try {
       if (!prisma) throw new Error("Prisma client not initialized");
+      console.log(`[ClearanceWorkflow] submitToOffice called for student: ${studentId}, office: ${officeId}`);
 
       // 1. Get Student & Department
       const student = await prisma.student.findUnique({
         where: { id: studentId },
         include: { department: true }
       });
+      console.log(`[ClearanceWorkflow] Student found: ${!!student}, departmentId: ${student?.departmentId}, facultyId: ${student?.facultyId}`);
 
       if (!student || !student.departmentId) {
         return { success: false, message: 'Student or Department not found' };
@@ -126,7 +128,29 @@ class ClearanceWorkflowService {
       }
 
       // 3. Logic: Submission Key
-      const submissionKey = this.getSubmissionKey(office.id, student.departmentId!, student.facultyId!);
+      // FALLBACK: If student doesn't have facultyId, try to get it from their department
+      let studentFacultyId = student.facultyId;
+      if (!studentFacultyId && student.department?.facultyId) {
+        studentFacultyId = student.department.facultyId;
+        console.log(`[ClearanceWorkflow] Fallback: Using facultyId from department: ${studentFacultyId}`);
+        // Proactively update student record for future consistency
+        await prisma.student.update({
+          where: { id: studentId },
+          data: { facultyId: studentFacultyId }
+        });
+      } else if (!studentFacultyId) {
+        console.log(`[ClearanceWorkflow] Warning: Student AND Department missing facultyId. Student: ${studentId}, Dept: ${student.departmentId}`);
+      }
+
+      if (office.isFacultySpecific && !studentFacultyId) {
+        console.log(`[ClearanceWorkflow] Error: Submission failed due to missing facultyId for faculty-specific office ${office.id}`);
+        return {
+          success: false,
+          message: `Faculty Information Missing: Your account is missing faculty association which is required for ${office.name}. Please contact administration to update your profile.`
+        };
+      }
+
+      const submissionKey = this.getSubmissionKey(office.id, student.departmentId!, studentFacultyId!);
 
       // 3.5. Check if HOD is assigned for department-specific offices
       if (office.isDepartmentSpecific) {
@@ -145,14 +169,14 @@ class ClearanceWorkflowService {
 
       if (office.isFacultySpecific) {
         const faculty = await prisma.faculty.findUnique({
-          where: { id: student.facultyId! },
+          where: { id: studentFacultyId! },
           include: { facultyOfficer: true }
         });
 
         if (!faculty?.facultyOfficer) {
           return {
             success: false,
-            message: `Faculty Officer Not Assigned: Your faculty (${faculty?.name}) does not have an assigned Faculty Officer yet. Please contact administration.`
+            message: `Faculty Officer Not Assigned: Your faculty (${faculty?.name || 'Unknown'}) does not have an assigned Faculty Officer yet. Please contact administration.`
           };
         }
       }
@@ -331,9 +355,14 @@ class ClearanceWorkflowService {
 
       const offices = CLEARANCE_OFFICES.map(office => {
         // Determine Submission Key for THIS office
-        const subKey = office.isDepartmentSpecific && student.departmentId
-          ? `hod-${student.departmentId}`
-          : office.id;
+        let subKey: string;
+        if (office.isDepartmentSpecific && student.departmentId) {
+          subKey = `hod-${student.departmentId}`;
+        } else if (office.isFacultySpecific && student.facultyId) {
+          subKey = `faculty-${student.facultyId}`;
+        } else {
+          subKey = office.id;
+        }
 
         const submission = request?.steps.find(s => s.submissionKey === subKey);
 
@@ -393,6 +422,12 @@ class ClearanceWorkflowService {
         } else {
           whereClause.submissionKey = { startsWith: 'hod-' };
         }
+      } else if (office.isFacultySpecific) {
+        if (departmentFilter) {
+          whereClause.submissionKey = `faculty-${departmentFilter}`;
+        } else {
+          whereClause.submissionKey = { startsWith: 'faculty-' };
+        }
       } else {
         whereClause.submissionKey = office.id;
       }
@@ -443,6 +478,12 @@ class ClearanceWorkflowService {
           whereClause.submissionKey = `hod-${departmentFilter}`;
         } else {
           whereClause.submissionKey = { startsWith: 'hod-' };
+        }
+      } else if (office.isFacultySpecific) {
+        if (departmentFilter) {
+          whereClause.submissionKey = `faculty-${departmentFilter}`;
+        } else {
+          whereClause.submissionKey = { startsWith: 'faculty-' };
         }
       } else {
         whereClause.submissionKey = office.id;
@@ -505,6 +546,12 @@ class ClearanceWorkflowService {
           whereClause.submissionKey = `hod-${departmentFilter}`;
         } else {
           whereClause.submissionKey = { startsWith: 'hod-' };
+        }
+      } else if (office.isFacultySpecific) {
+        if (departmentFilter) {
+          whereClause.submissionKey = `faculty-${departmentFilter}`;
+        } else {
+          whereClause.submissionKey = { startsWith: 'faculty-' };
         }
       } else {
         whereClause.submissionKey = office.id;

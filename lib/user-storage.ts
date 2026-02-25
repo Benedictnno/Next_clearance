@@ -134,7 +134,7 @@ export const logout = async (): Promise<void> => {
 // COREEKSU API UTILITIES
 // ============================================
 
-const COREEKSU_BASE_URL = 'https://coreeksu.vercel.app';
+const COREEKSU_BASE_URL = 'https://eksucore.vercel.app';
 
 /**
  * Fetch user details from CoreEKSU API using a token.
@@ -146,12 +146,18 @@ export const fetchUserFromCoreEKSU = async (token: string): Promise<CoreEKSUUser
     try {
         const response = await fetch(`${COREEKSU_BASE_URL}/api/users/me`, {
             headers: {
-                Authorization: `Bearer ${token}`,
+                'Cookie': `token=${token}`,
+                'Authorization': `Bearer ${token}` // Including as fallback
             },
+            cache: 'no-store'
         });
 
         if (!response.ok) {
-            console.error('CoreEKSU user fetch failed:', response.status);
+            const errorText = await response.text().catch(() => 'No response body');
+            console.error(`[fetchUserFromCoreEKSU] FAILED: ${response.status}`);
+            console.log(`- URL: ${COREEKSU_BASE_URL}/api/users/me`);
+            console.log(`- Token preview: ${token.substring(0, 15)}...${token.slice(-10)}`);
+            console.log(`- Error body: ${errorText}`);
             return null;
         }
 

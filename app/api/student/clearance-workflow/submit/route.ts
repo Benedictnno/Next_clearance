@@ -34,12 +34,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedData = SubmitSchema.parse(body);
+    console.log('[ClearanceSubmit] Incoming request body:', JSON.stringify(body, null, 2));
+
+    let validatedData;
+    try {
+      validatedData = SubmitSchema.parse(body);
+    } catch (zodError) {
+      console.error('[ClearanceSubmit] Zod validation failed:', zodError);
+      throw zodError; // Re-throw to be caught by catch block
+    }
 
     // Check 4-year eligibility requirement
     if (user.student.admissionYear) {
       const currentYear = new Date().getFullYear();
       const yearsSpent = currentYear - user.student.admissionYear;
+      console.log(`[ClearanceSubmit] Eligibility check: admissionYear=${user.student.admissionYear}, currentYear=${currentYear}, yearsSpent=${yearsSpent}`);
 
       if (yearsSpent < 4) {
         return NextResponse.json(

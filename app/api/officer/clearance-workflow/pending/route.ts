@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get pending submissions for this office
-    // Pass officer's assigned department ID if they are restricted
-    const departmentFilter = user.officer.assignedDepartmentId || undefined;
+    // Pass officer's assigned department ID OR faculty ID if they are restricted
+    const departmentFilter = user.officer.assignedDepartmentId || user.officer.facultyId || undefined;
 
     const submissions = await clearanceWorkflow.getOfficePendingSubmissions(
       officeId,

@@ -108,6 +108,64 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
             faculty: raw.faculty ? String(raw.faculty) : undefined,
         };
 
+        // AUTHORITATIVE CHECK: Fetch fresh data from Core API if possible
+        try {
+            const coreResponse = await fetch('https://eksucore.vercel.app/api/users/me', {
+                headers: {
+                    'Cookie': `token=${token}`,
+                    'Authorization': `Bearer ${token}`
+                },
+                // Edge runtime compatible options
+                cache: 'no-store'
+            });
+
+            if (coreResponse.ok) {
+                const coreData = await coreResponse.json();
+                const coreUser = coreData.user || coreData;
+
+                if (coreUser) {
+                    console.log('[verifyTokenEdge] Merging fresh data from Core API for:', coreUser.email);
+                    normalized.userId = String(coreUser.id || coreUser._id || normalized.userId);
+                    normalized.email = coreUser.email || normalized.email;
+
+                    if (coreUser.role) {
+                        normalized.role = (function () {
+                            const r = String(coreUser.role).toUpperCase();
+                            if (['STAFF', 'OFFICIAL', 'OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'].includes(r)) return 'OFFICER';
+                            if (r === 'GENERAL') return 'STUDENT';
+                            return r;
+                        })();
+                    }
+
+                    // Derive officeRole from position if present in core data
+                    if (coreUser.position) {
+                        const pos = String(coreUser.position).toUpperCase();
+                        if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) normalized.officeRole = 'HOD';
+                        else if (pos.includes('FACULTY OFFICER')) normalized.officeRole = 'FACULTY_OFFICER';
+                        else if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) normalized.officeRole = 'ADVANCEMENT';
+                        else if (pos.includes('DEAN')) normalized.officeRole = 'DEAN';
+                        else if (pos.includes('BURSAR')) normalized.officeRole = 'BURSAR';
+                        else if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) normalized.officeRole = 'LIBRARY';
+                        else if (pos.includes('REGISTRAR')) normalized.officeRole = 'REGISTRAR';
+                        else if (pos.includes('SPORTS')) normalized.officeRole = 'SPORTS';
+                        else if (pos.includes('CLINIC') || pos.includes('MEDICAL')) normalized.officeRole = 'CLINIC';
+                        else if (pos.includes('STUDENT AFFAIRS')) normalized.officeRole = 'OVERSEER';
+                        else normalized.officeRole = pos;
+                    }
+
+                    normalized.name = coreUser.name || normalized.name;
+                    normalized.matricNumber = coreUser.matricNumber || normalized.matricNumber;
+                    normalized.department = coreUser.department || normalized.department;
+                    normalized.faculty = coreUser.faculty || normalized.faculty;
+                }
+            } else {
+                const errorText = await coreResponse.text();
+                console.error(`[verifyTokenEdge] Core API fetch failed: ${coreResponse.status} - ${errorText}`);
+            }
+        } catch (fetchError) {
+            console.error('[verifyTokenEdge] Failed to fetch fresh user data from Core API (using token payload as fallback):', fetchError);
+        }
+
         return normalized;
     } catch (error) {
         const secretPreview = JWT_SECRET ? `${JWT_SECRET.substring(0, 4)}... (len: ${JWT_SECRET.length})` : 'MISSING';

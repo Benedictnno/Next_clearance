@@ -45,9 +45,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all submissions for this office
-    // Don't filter by officerId - officers should see all submissions for their office
+    // Pass officer's assigned department ID OR faculty ID if they are restricted
+    const departmentFilter = user.officer.assignedDepartmentId || user.officer.facultyId || undefined;
+
     const submissions = await clearanceWorkflow.getOfficeAllSubmissions(
-      officeId
+      officeId,
+      departmentFilter
     );
 
     const response = NextResponse.json({

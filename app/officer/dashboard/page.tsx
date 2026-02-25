@@ -104,17 +104,19 @@ export default function OfficerDashboard() {
               {(['OVERSEER', 'STUDENT_AFFAIRS', 'ADMIN', 'SUPER_ADMIN'].includes(officerRole || '')) && (
                 <button
                   onClick={() => router.push('/officer/oversight')}
-                  className="bg-slate-900 text-white px-6 py-3 rounded-lg hover:bg-slate-800 transition font-semibold shadow-md flex items-center justify-center"
+                  className="bg-slate-900 text-white px-6 py-3 rounded-lg hover:bg-slate-800 transition font-semibold shadow-md flex items-center justify-center cursor-pointer"
                 >
-                  📊 Oversight Analytics
+                  Student Affairs Oversight Analytics
                 </button>
               )}
-              <button
-                onClick={() => router.push('/officer/clearance-workflow')}
-                className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition font-semibold shadow-md flex items-center justify-center"
-              >
-                Go to My Active Workflow →
-              </button>
+              {(!['OVERSEER', 'STUDENT_AFFAIRS'].includes(officerRole || '')) && (
+                <button
+                  onClick={() => router.push('/officer/clearance-workflow')}
+                  className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition font-semibold shadow-md flex items-center justify-center"
+                >
+                  Go to My Active Workflow →
+                </button>
+              )}
               <button
                 onClick={() => logout()}
                 className="bg-white border-2 border-slate-200 text-slate-600 px-6 py-3 rounded-lg hover:bg-slate-50 transition font-semibold shadow-md flex items-center justify-center"

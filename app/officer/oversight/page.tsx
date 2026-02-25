@@ -228,7 +228,7 @@ export default function OversightDashboard() {
                 {/* Audit Table */}
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden print:shadow-none print:border-none">
                     <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                        <h2 className="text-xl font-black text-slate-900">Audit Registry</h2>
+                        <h2 className="text-xl font-black text-slate-900">Student Affairs Registry</h2>
                         <span className="bg-slate-900 text-white px-3 py-1 rounded-lg text-xs font-black tracking-widest uppercase">
                             {filteredRequests.length} Students
                         </span>
