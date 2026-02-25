@@ -10,7 +10,7 @@ if (!uri) {
 }
 
 async function cleanup() {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri!);
     try {
         await client.connect();
         const db = client.db('eksu_clearance');
@@ -33,7 +33,7 @@ async function cleanup() {
         } else {
             console.log("No cleanup needed.");
         }
-    } catch (e) {
+    } catch (e: any) {
         console.error('Cleanup failed:', e.message);
     } finally {
         await client.close();
