@@ -37,9 +37,16 @@ export async function GET(request: NextRequest) {
     const qrData = `https://eksu-clearance.vercel.app/verify/nysc/${formNumber}`;
     const qrCode = await pdfGenerator.generateQRCode(qrData);
 
+    // Get NYSC Info
+    if (!prisma) throw new Error("Prisma client not initialized");
+    const nyscInfo = await prisma.nYSCInfo.findUnique({
+      where: { studentId: user.student.id }
+    });
+
     // Prepare NYSC form data
-    const nyscFormData = {
+    const nyscFormData: any = {
       student: studentData,
+      nyscInfo,
       formNumber,
       generatedDate: new Date(),
       qrCode,
