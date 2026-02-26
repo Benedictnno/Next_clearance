@@ -113,7 +113,7 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
 
         // AUTHORITATIVE CHECK: Fetch fresh data from Core API if possible
         try {
-            const coreResponse = await fetch('https://eksucore.vercel.app/api/users/me', {
+            const coreResponse = await fetch('https://coreeksu.vercel.app/api/users/me', {
                 headers: {
                     'Cookie': `token=${token}`,
                     'Authorization': `Bearer ${token}`

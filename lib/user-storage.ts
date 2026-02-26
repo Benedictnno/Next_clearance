@@ -134,7 +134,7 @@ export const logout = async (): Promise<void> => {
 // COREEKSU API UTILITIES
 // ============================================
 
-const COREEKSU_BASE_URL = 'https://eksucore.vercel.app';
+const COREEKSU_BASE_URL = 'https://coreeksu.vercel.app';
 
 /**
  * Fetch user details from CoreEKSU API using a token.

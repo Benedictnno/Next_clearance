@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/auth';
 import { clearanceWorkflow } from '@/lib/clearanceWorkflow';
 import { pdfGenerator } from '@/lib/pdfGenerator';
 import { collections } from '@/lib/mongoCollections';
+import { prisma } from '@/lib/prisma';
 
 // Generate NYSC mobilization form PDF
 export async function GET(request: NextRequest) {
