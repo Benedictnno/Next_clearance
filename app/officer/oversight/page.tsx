@@ -6,6 +6,7 @@ import { logout } from '@/lib/user-storage';
 
 interface ClearanceRequest {
     id: string;
+    studentId: string;
     studentName: string;
     studentMatricNumber: string;
     studentDepartment: string;
@@ -103,6 +104,28 @@ export default function OversightDashboard() {
 
     const calculateProgress = (completed: number, total: number) => {
         return Math.round((completed / total) * 100);
+    };
+
+    const handleDownload = async (request: ClearanceRequest) => {
+        try {
+            const res = await fetch(`/api/officer/clearance-workflow/download-certificate?studentId=${request.studentId}`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Clearance_Form_${request.studentMatricNumber}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                alert('Failed to download certificate.');
+            }
+        } catch (error) {
+            console.error('Error downloading certificate:', error);
+            alert('An error occurred while downloading the certificate.');
+        }
     };
 
     if (loading) {
@@ -288,14 +311,16 @@ export default function OversightDashboard() {
                                         <td className="px-6 py-5 whitespace-nowrap text-right">
                                             {r.isFullyCompleted ? (
                                                 <button
-                                                    className="bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all"
+                                                    onClick={() => handleDownload(r)}
+                                                    className="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center w-full"
                                                 >
-                                                    View Forms
+                                                    <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                                    Download Form
                                                 </button>
                                             ) : (
                                                 <button
                                                     disabled
-                                                    className="bg-slate-50 border border-slate-200 text-slate-400 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest cursor-not-allowed"
+                                                    className="bg-slate-50 border border-slate-200 text-slate-400 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest cursor-not-allowed w-full text-center"
                                                 >
                                                     In Progress
                                                 </button>

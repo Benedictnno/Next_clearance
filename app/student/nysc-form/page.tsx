@@ -62,7 +62,7 @@ export default function NYSCFormPage() {
                     </p>
                     <button
                         onClick={handleDownload}
-                        className="px-8 py-4 bg-white text-primary-500 rounded-lg font-semibold text-body hover:bg-mist-100 transition-all duration-120 shadow-lg"
+                        className="px-8 py-4 bg-black text-primary-500 rounded-lg font-semibold text-body hover:bg-mist-100 transition-all duration-120 shadow-lg"
                     >
                         📥 Download NYSC Form
                     </button>

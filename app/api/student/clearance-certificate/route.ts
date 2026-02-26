@@ -7,10 +7,17 @@ import { collections } from '@/lib/mongoCollections';
 // Generate clearance certificate PDF
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole('STUDENT');
+    const auth = await requireRole('STUDENT');
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { user } = auth;
+    if (!user?.student) {
+      return NextResponse.json({ error: 'Student record not found' }, { status: 404 });
+    }
 
     // Check if clearance is completed
-    const isCompleted = await clearanceWorkflow.canAccessFinalForms(String(session.user?.id));
+    const isCompleted = await clearanceWorkflow.canAccessFinalForms(user.student.id);
     if (!isCompleted) {
       return NextResponse.json({
         error: 'Clearance not completed. Please complete all clearance steps first.'
@@ -18,16 +25,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Get student data
-    const studentData = await pdfGenerator.getStudentDataForPDF(String(session.user?.id));
+    const studentData = await pdfGenerator.getStudentDataForPDF(user.student.id);
     if (!studentData) {
       return NextResponse.json({ error: 'Student data not found' }, { status: 404 });
     }
 
     // Get clearance steps data
-    const stepsData = await pdfGenerator.getClearanceStepsForPDF(String(session.user?.id));
+    const stepsData = await pdfGenerator.getClearanceStepsForPDF(user.student.id);
 
     // Generate certificate number
-    const certificateNumber = `EKSU-CC-${new Date().getFullYear()}-${String(session.user?.id).slice(-6)}`;
+    const certificateNumber = `EKSU-CC-${new Date().getFullYear()}-${user.student.id.slice(-6)}`;
 
     // Generate QR code data
     const qrData = `https://eksu-clearance.vercel.app/verify/certificate/${certificateNumber}`;
@@ -49,7 +56,7 @@ export async function GET(request: NextRequest) {
     try {
       const { certificates } = await collections();
       await certificates.insertOne({
-        studentId: String(session.user?.id),
+        studentId: user.student.id,
         certificateNumber,
         generatedDate: new Date(),
         qrCode,
@@ -81,10 +88,17 @@ export async function GET(request: NextRequest) {
 // Check if clearance certificate is available
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole('STUDENT');
+    const auth = await requireRole('STUDENT');
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { user } = auth;
+    if (!user?.student) {
+      return NextResponse.json({ available: false, message: 'Student record not found' });
+    }
 
     // Check if clearance is completed
-    const isCompleted = await clearanceWorkflow.canAccessFinalForms(String(session.user?.id));
+    const isCompleted = await clearanceWorkflow.canAccessFinalForms(user.student.id);
 
     if (!isCompleted) {
       return NextResponse.json({
@@ -97,7 +111,7 @@ export async function POST(request: NextRequest) {
     try {
       const { certificates } = await collections();
       const existingCertificate = await certificates.findOne({
-        studentId: String(session.user?.id)
+        studentId: user.student.id
       });
 
       if (existingCertificate) {

@@ -48,6 +48,7 @@ export default function NYSCInfoPage() {
 
   const fetchExistingData = async () => {
     try {
+      // 1. Try to fetch existing NYSC data
       const res = await fetch('/api/student/nysc-info');
       if (res.ok) {
         const data = await res.json();
@@ -55,15 +56,35 @@ export default function NYSCInfoPage() {
           setFormData({
             ...data.data,
             dateOfBirth: {
-              day: data.data.dateOfBirthDay || 1,
-              month: data.data.dateOfBirthMonth || 1,
-              year: data.data.dateOfBirthYear || 2000,
+              day: parseInt(data.data.dateOfBirthDay) || 1,
+              month: parseInt(data.data.dateOfBirthMonth) || 1,
+              year: parseInt(data.data.dateOfBirthYear) || 2000,
             },
           });
+          return; // Stop here if we have data
+        }
+      }
+
+      // 2. If no data, pre-fill from profile
+      const profileRes = await fetch('/api/student/profile');
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        const student = profileData.data;
+        if (student) {
+          setFormData(prev => ({
+            ...prev,
+            name: `${student.firstName} ${student.lastName}`,
+            faculty: student.faculty?.name || '',
+            department: student.department?.name || '',
+            courseOfStudy: student.department?.name || '', // Fallback
+            matricNumber: student.matricNumber || '',
+            email: student.email || '',
+            phoneNumber: student.phoneNumber || '',
+          }));
         }
       }
     } catch (err) {
-      console.error('Error fetching existing data:', err);
+      console.error('Error fetching data:', err);
     }
   };
 

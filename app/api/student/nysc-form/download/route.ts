@@ -11,13 +11,13 @@ export async function GET(request: NextRequest) {
     if (!auth.success) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
-    const { session } = auth;
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 401 });
+    const { user, session } = auth;
+    if (!user?.student) {
+      return NextResponse.json({ error: 'Student record not found' }, { status: 404 });
     }
 
     // Check if clearance is completed
-    const isCompleted = await clearanceWorkflow.canAccessFinalForms(String(session.userId));
+    const isCompleted = await clearanceWorkflow.canAccessFinalForms(user.student.id);
     if (!isCompleted) {
       return NextResponse.json({
         error: 'Clearance not completed. Please complete all clearance steps first.'
@@ -25,13 +25,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get student data
-    const studentData = await pdfGenerator.getStudentDataForPDF(String(session.userId));
+    const studentData = await pdfGenerator.getStudentDataForPDF(user.student.id);
     if (!studentData) {
       return NextResponse.json({ error: 'Student data not found' }, { status: 404 });
     }
 
     // Generate form number
-    const formNumber = `EKSU-NYSC-${new Date().getFullYear()}-${String(session.userId).slice(-6)}`;
+    const formNumber = `EKSU-NYSC-${new Date().getFullYear()}-${user.student.id.slice(-6)}`;
 
     // Generate QR code data
     const qrData = `https://eksu-clearance.vercel.app/verify/nysc/${formNumber}`;
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     try {
       const { nyscForms } = await collections();
       await nyscForms.insertOne({
-        studentId: String(session.userId),
+        studentId: user.student.id,
         formNumber,
         generatedDate: new Date(),
         qrCode,
@@ -88,13 +88,13 @@ export async function POST(request: NextRequest) {
     if (!auth.success) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
-    const { session } = auth;
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 401 });
+    const { user, session } = auth;
+    if (!user?.student) {
+      return NextResponse.json({ available: false, error: 'Student record not found' });
     }
 
     // Check if clearance is completed
-    const isCompleted = await clearanceWorkflow.canAccessFinalForms(String(session.userId));
+    const isCompleted = await clearanceWorkflow.canAccessFinalForms(user.student.id);
 
     if (!isCompleted) {
       return NextResponse.json({
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     try {
       const { nyscForms } = await collections();
       const existingForm = await nyscForms.findOne({
-        studentId: String(session.userId)
+        studentId: user.student.id
       });
 
       if (existingForm) {

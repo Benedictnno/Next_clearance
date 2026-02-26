@@ -5,13 +5,13 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
-    
+
     if (!user?.student) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Find NYSC info for this student
-    const nyscInfo:any = await prisma.nYSCInfo.findUnique({
+    const nyscInfo: any = await prisma.nYSCInfo.findUnique({
       where: { studentId: user.student.id }
     });
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
-    
+
     if (!user?.student) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
         matricNumber,
         jambRegNo,
         sex,
-        dateOfBirthDay: dateOfBirth.day,
-        dateOfBirthMonth: dateOfBirth.month,
-        dateOfBirthYear: dateOfBirth.year,
+        dateOfBirthDay: String(dateOfBirth.day),
+        dateOfBirthMonth: String(dateOfBirth.month),
+        dateOfBirthYear: String(dateOfBirth.year),
         maritalStatus,
         stateOfOrigin,
         lgaOfOrigin,
@@ -88,9 +88,9 @@ export async function POST(request: NextRequest) {
         matricNumber,
         jambRegNo,
         sex,
-        dateOfBirthDay: dateOfBirth.day,
-        dateOfBirthMonth: dateOfBirth.month,
-        dateOfBirthYear: dateOfBirth.year,
+        dateOfBirthDay: String(dateOfBirth.day),
+        dateOfBirthMonth: String(dateOfBirth.month),
+        dateOfBirthYear: String(dateOfBirth.year),
         maritalStatus,
         stateOfOrigin,
         lgaOfOrigin,
