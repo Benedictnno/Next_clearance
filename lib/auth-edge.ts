@@ -88,14 +88,17 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
                     const pos = String(raw.position).toUpperCase();
                     if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) return 'HOD';
                     if (pos.includes('FACULTY OFFICER')) return 'FACULTY_OFFICER';
-                    if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) return 'ADVANCEMENT';
+                    if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) return 'ADVANCEMENT_LINKAGES';
                     if (pos.includes('STUDENT AFFAIRS')) return 'OVERSEER';
                     if (pos.includes('DEAN')) return 'DEAN';
                     if (pos.includes('BURSAR')) return 'BURSAR';
                     if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) return 'LIBRARY';
-                    if (pos.includes('REGISTRAR')) return 'REGISTRAR';
+                    if (pos.includes('REGISTRAR') || pos.includes('EXAMS')) return 'EXAMS_TRANSCRIPT';
                     if (pos.includes('SPORTS')) return 'SPORTS';
                     if (pos.includes('CLINIC') || pos.includes('MEDICAL')) return 'CLINIC';
+                    if (pos.includes('ALUMNI')) return 'ALUMNI';
+                    if (pos.includes('AUDIT')) return 'AUDIT';
+                    if (pos.includes('SECURITY')) return 'SECURITY';
                     return pos;
                 }
                 // Fallback for Student Affairs specifically if identity provider is sparse
@@ -142,13 +145,16 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
                         const pos = String(coreUser.position).toUpperCase();
                         if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) normalized.officeRole = 'HOD';
                         else if (pos.includes('FACULTY OFFICER')) normalized.officeRole = 'FACULTY_OFFICER';
-                        else if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) normalized.officeRole = 'ADVANCEMENT';
+                        else if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) normalized.officeRole = 'ADVANCEMENT_LINKAGES';
                         else if (pos.includes('DEAN')) normalized.officeRole = 'DEAN';
                         else if (pos.includes('BURSAR')) normalized.officeRole = 'BURSAR';
                         else if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) normalized.officeRole = 'LIBRARY';
-                        else if (pos.includes('REGISTRAR')) normalized.officeRole = 'REGISTRAR';
+                        else if (pos.includes('REGISTRAR') || pos.includes('EXAMS')) normalized.officeRole = 'EXAMS_TRANSCRIPT';
                         else if (pos.includes('SPORTS')) normalized.officeRole = 'SPORTS';
                         else if (pos.includes('CLINIC') || pos.includes('MEDICAL')) normalized.officeRole = 'CLINIC';
+                        else if (pos.includes('ALUMNI')) normalized.officeRole = 'ALUMNI';
+                        else if (pos.includes('AUDIT')) normalized.officeRole = 'AUDIT';
+                        else if (pos.includes('SECURITY')) normalized.officeRole = 'SECURITY';
                         else if (pos.includes('STUDENT AFFAIRS')) normalized.officeRole = 'OVERSEER';
                         else normalized.officeRole = pos;
                     }

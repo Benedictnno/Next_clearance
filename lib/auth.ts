@@ -82,14 +82,17 @@ export async function verifyToken(token: string) {
           const pos = String(raw.position).toUpperCase();
           if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) return 'HOD';
           if (pos.includes('FACULTY OFFICER')) return 'FACULTY_OFFICER';
-          if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) return 'ADVANCEMENT';
+          if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) return 'ADVANCEMENT_LINKAGES';
           if (pos.includes('DEAN')) return 'DEAN';
           if (pos.includes('BURSAR')) return 'BURSAR';
           if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) return 'LIBRARY';
           if (pos.includes('STUDENT AFFAIRS')) return 'OVERSEER';
-          if (pos.includes('REGISTRAR')) return 'REGISTRAR';
+          if (pos.includes('REGISTRAR') || pos.includes('EXAMS')) return 'EXAMS_TRANSCRIPT';
           if (pos.includes('SPORTS')) return 'SPORTS';
           if (pos.includes('CLINIC') || pos.includes('MEDICAL')) return 'CLINIC';
+          if (pos.includes('ALUMNI')) return 'ALUMNI';
+          if (pos.includes('AUDIT')) return 'AUDIT';
+          if (pos.includes('SECURITY')) return 'SECURITY';
           return pos;
         }
         // Fallback for Student Affairs specifically if identity provider is sparse
@@ -138,13 +141,16 @@ export async function getCurrentUser() {
       const pos = String(coreUser.position).toUpperCase();
       if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) payload.officeRole = 'HOD';
       else if (pos.includes('FACULTY OFFICER')) payload.officeRole = 'FACULTY_OFFICER';
-      else if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) payload.officeRole = 'ADVANCEMENT';
+      else if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) payload.officeRole = 'ADVANCEMENT_LINKAGES';
       else if (pos.includes('DEAN')) payload.officeRole = 'DEAN';
       else if (pos.includes('BURSAR')) payload.officeRole = 'BURSAR';
       else if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) payload.officeRole = 'LIBRARY';
-      else if (pos.includes('REGISTRAR')) payload.officeRole = 'REGISTRAR';
+      else if (pos.includes('REGISTRAR') || pos.includes('EXAMS')) payload.officeRole = 'EXAMS_TRANSCRIPT';
       else if (pos.includes('SPORTS')) payload.officeRole = 'SPORTS';
       else if (pos.includes('CLINIC') || pos.includes('MEDICAL')) payload.officeRole = 'CLINIC';
+      else if (pos.includes('ALUMNI')) payload.officeRole = 'ALUMNI';
+      else if (pos.includes('AUDIT')) payload.officeRole = 'AUDIT';
+      else if (pos.includes('SECURITY')) payload.officeRole = 'SECURITY';
       else if (pos.includes('STUDENT AFFAIRS')) payload.officeRole = 'OVERSEER';
       else payload.officeRole = pos;
     }
@@ -256,17 +262,21 @@ export async function getCurrentUser() {
           assignedOffices = payload.assignedOffices;
         } else if (payload.officeRole) {
           const roleToOffice: Record<string, string[]> = {
-            'HOD': ['hod'],
+            'HOD': ['department_hod'],
             'FACULTY_OFFICER': ['faculty_officer'],
-            'ADVANCEMENT': ['advancement_linkages'],
-            'DEAN': ['dean'],
-            'BURSAR': ['bursar'],
-            'LIBRARIAN': ['library'],
-            'LIBRARY': ['library'],
-            'OVERSEER': [], // Overseers have global view but no specific office submissions
-            'REGISTRAR': ['registrar'],
-            'SPORTS': ['sports'],
-            'CLINIC': ['clinic'],
+            'ADVANCEMENT_LINKAGES': ['advancement_linkages'],
+            'DEAN': ['faculty_officer'],
+            'BURSAR': ['bursary'],
+            'LIBRARIAN': ['university_librarian'],
+            'LIBRARY': ['university_librarian'],
+            'OVERSEER': [],
+            'REGISTRAR': ['exams_transcript'],
+            'EXAMS_TRANSCRIPT': ['exams_transcript'],
+            'SPORTS': ['sports_council'],
+            'CLINIC': ['sports_council'],
+            'ALUMNI': ['alumni_association'],
+            'AUDIT': ['internal_audit'],
+            'SECURITY': ['security_office'],
           };
           assignedOffices = roleToOffice[payload.officeRole.toUpperCase()] || [];
         }
@@ -724,13 +734,20 @@ export async function getCurrentUser() {
   // Synchronize officer profile and HOD/Faculty Officer/Dean role assignment
   if (user && user.officer && payload.role === 'OFFICER') {
     const roleToOffice: Record<string, string[]> = {
-      'HOD': ['hod'],
-      'LIBRARY': ['library'],
-      'BURSAR': ['bursar'],
-      'SPORTS': ['sports'],
-      'CLINIC': ['clinic'],
-      'DEAN': ['dean'],
-      'REGISTRAR': ['registrar'],
+      'HOD': ['department_hod'],
+      'FACULTY_OFFICER': ['faculty_officer'],
+      'LIBRARY': ['university_librarian'],
+      'BURSAR': ['bursary'],
+      'SPORTS': ['sports_council'],
+      'CLINIC': ['sports_council'], // Historically linked?
+      'DEAN': ['faculty_officer'],
+      'REGISTRAR': ['exams_transcript'],
+      'EXAMS_TRANSCRIPT': ['exams_transcript'],
+      'ALUMNI': ['alumni_association'],
+      'AUDIT': ['internal_audit'],
+      'SECURITY': ['security_office'],
+      'ADVANCEMENT': ['advancement_linkages'],
+      'ADVANCEMENT_LINKAGES': ['advancement_linkages'],
     };
 
     let payloadOffices = payload.assignedOffices;
@@ -748,6 +765,11 @@ export async function getCurrentUser() {
       'CLINIC': 'Medical Centre',
       'DEAN': 'Faculty Office',
       'REGISTRAR': 'Registry',
+      'EXAMS_TRANSCRIPT': 'Exams and Transcript Office',
+      'ALUMNI': 'Alumni Association',
+      'AUDIT': 'Internal Audit',
+      'SECURITY': 'Security Office',
+      'ADVANCEMENT_LINKAGES': 'Office of Advancement and Linkages',
     };
 
     const targetOfficeName = payload.officeRole ? (officeNameMapping[payload.officeRole.toUpperCase()] || payload.officeRole) : user.officer.assignedOfficeName;
@@ -755,21 +777,22 @@ export async function getCurrentUser() {
 
     // Aggressively update if name, role, or offices are missing or different
     if (
-      (!user.officer.name && payload.name) ||
-      (!user.officer.role && payload.officeRole) ||
-      (user.officer.assignedOffices.length === 0 && payloadOffices && payloadOffices.length > 0) ||
-      (!user.officer.assignedOfficeName && targetOfficeName) ||
+      (payload.name && user.officer.name !== payload.name) ||
+      (payload.officeRole && user.officer.role !== payload.officeRole) ||
+      (payloadOffices && JSON.stringify(user.officer.assignedOffices) !== JSON.stringify(payloadOffices)) ||
+      (targetOfficeName && user.officer.assignedOfficeName !== targetOfficeName) ||
+      (newAssignedOfficeId && user.officer.assignedOfficeId !== newAssignedOfficeId) ||
       (user.officer.assignedOfficeId === 'staff')
     ) {
-      console.log('[AuthSync] Syncing officer record for:', user.email);
+      console.log('[AuthSync] Aggressively syncing officer record for:', user.email);
       try {
         const updatedOfficer = await prisma.officer.update({
           where: { id: user.officer.id },
           data: {
-            name: user.officer.name || payload.name,
+            name: payload.name || user.officer.name,
             role: payload.officeRole || user.officer.role,
-            assignedOffices: payloadOffices && payloadOffices.length > 0 ? payloadOffices : user.officer.assignedOffices,
-            assignedOfficeId: newAssignedOfficeId,
+            assignedOffices: (payloadOffices && payloadOffices.length > 0) ? payloadOffices : user.officer.assignedOffices,
+            assignedOfficeId: newAssignedOfficeId || user.officer.assignedOfficeId,
             assignedOfficeName: targetOfficeName || user.officer.assignedOfficeName,
           }
         });

@@ -76,7 +76,7 @@ export async function middleware(request: NextRequest) {
       redirectUrl = '/student/dashboard';
     } else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) {
       redirectUrl = '/officer/oversight';
-    } else if (userRole === 'OFFICER') {
+    } else if (userRole === 'OFFICER' || ['ADVANCEMENT_LINKAGES', 'HOD', 'FACULTY_OFFICER', 'BURSAR', 'LIBRARY', 'EXAMS_TRANSCRIPT', 'SPORTS', 'ALUMNI', 'AUDIT', 'SECURITY'].includes(officeRole)) {
       redirectUrl = '/officer/dashboard';
     } else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
       redirectUrl = '/admin/dashboard';
@@ -180,7 +180,7 @@ export async function middleware(request: NextRequest) {
         let dashboardUrl = '/';
         if (userRole === 'STUDENT') dashboardUrl = '/student/dashboard';
         else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) dashboardUrl = '/officer/oversight';
-        else if (userRole === 'OFFICER') dashboardUrl = '/officer/dashboard';
+        else if (userRole === 'OFFICER' || ['ADVANCEMENT_LINKAGES', 'HOD', 'FACULTY_OFFICER', 'BURSAR', 'LIBRARY', 'EXAMS_TRANSCRIPT', 'SPORTS', 'ALUMNI', 'AUDIT', 'SECURITY'].includes(officeRole)) dashboardUrl = '/officer/dashboard';
         else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) dashboardUrl = '/admin/dashboard';
 
         if (dashboardUrl !== '/') {
@@ -233,7 +233,7 @@ export async function middleware(request: NextRequest) {
           let correctDashboard = '/';
           if (userRole === 'STUDENT') correctDashboard = '/student/dashboard';
           else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) correctDashboard = '/officer/oversight';
-          else if (userRole === 'OFFICER') correctDashboard = '/officer/dashboard';
+          else if (userRole === 'OFFICER' || ['ADVANCEMENT_LINKAGES', 'HOD', 'FACULTY_OFFICER', 'BURSAR', 'LIBRARY', 'EXAMS_TRANSCRIPT', 'SPORTS', 'ALUMNI', 'AUDIT', 'SECURITY'].includes(officeRole)) correctDashboard = '/officer/dashboard';
           else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) correctDashboard = '/admin/dashboard';
 
           return NextResponse.redirect(new URL(correctDashboard, request.url));

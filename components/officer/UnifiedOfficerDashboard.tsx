@@ -60,12 +60,21 @@ export default function UnifiedOfficerDashboard() {
             try {
                 const res = await fetch('/api/officer/me');
                 const data = await res.json();
-                if (data.success && data.data.assignedOfficeId) {
+                if (data.success) {
                     setOfficerInfo(data.data);
-                    setSelectedOffice(data.data.assignedOfficeId);
+                    if (data.data.assignedOfficeId) {
+                        setSelectedOffice(data.data.assignedOfficeId);
+                    } else {
+                        // Not an error, but we need to stop the loading spinner
+                        setLoading(false);
+                    }
+                } else {
+                    console.error('Failed to fetch officer info');
+                    setLoading(false);
                 }
             } catch (error) {
                 console.error('Error fetching officer info:', error);
+                setLoading(false);
             }
         }
         fetchOfficerInfo();
