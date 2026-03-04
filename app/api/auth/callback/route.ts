@@ -16,26 +16,26 @@ export async function GET(request: NextRequest) {
 
     try {
         // 2. Server-to-Server Verification
-        const coreApiUrl = process.env.CORE_API_URL;
+        const coreApiUrl = process.env.CORE_API_URL || 'https://coreeksu.vercel.app';
         const coreSecret = process.env.CORE_SYSTEM_SECRET;
 
-        if (!coreApiUrl || !coreSecret) {
-            console.error('[Auth Callback] Configuration Error: CORE_API_URL or CORE_SYSTEM_SECRET is missing');
+        if (!coreSecret) {
+            console.error('[Auth Callback] Configuration Error: CORE_SYSTEM_SECRET is missing');
             return NextResponse.redirect(new URL('/?error=config_error', request.url));
         }
 
-        console.log(`[Auth Callback] Verifying session with Core API: ${coreApiUrl}/api/verify-session`);
+        const verifyUrl = `${coreApiUrl}/api/verify-session`;
+        console.log(`[Auth Callback] Verifying session with Core API: ${verifyUrl}`);
 
         let response;
         try {
-            response = await fetch(`${coreApiUrl}/api/verify-session`, {
+            response = await fetch(verifyUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${coreSecret}`,
                 },
                 body: JSON.stringify({ reference }),
-                // Add a timeout if possible or handle potential network errors
                 cache: 'no-store'
             });
         } catch (fetchError: any) {
@@ -44,9 +44,8 @@ export async function GET(request: NextRequest) {
         }
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-            const errorMsg = errorData.message || 'Verification failed';
-            console.error('[Auth Callback] Session verification failed:', response.status, errorMsg);
+            const errorText = await response.text().catch(() => 'No body');
+            console.error('[Auth Callback] Session verification failed:', response.status, errorText);
 
             // Handle specific error cases
             if (response.status === 410) {
@@ -59,7 +58,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.redirect(new URL('/?error=reference_not_found', request.url));
             }
 
-            return NextResponse.redirect(new URL(`/?error=verification_failed&status=${response.status}&msg=${encodeURIComponent(errorMsg)}`, request.url));
+            return NextResponse.redirect(new URL(`/?error=verification_failed&status=${response.status}`, request.url));
         }
 
         const data = await response.json();
@@ -80,7 +79,6 @@ export async function GET(request: NextRequest) {
             redirectUrl = '/student/dashboard';
         } else if (normalizedRole === 'OFFICER' || normalizedRole === 'STAFF') {
             redirectUrl = '/officer/dashboard';
-            // Check for both ADMIN and SUPER_ADMIN
         } else if (['ADMIN', 'SUPER_ADMIN'].includes(normalizedRole)) {
             redirectUrl = '/admin/dashboard';
         }
@@ -92,19 +90,16 @@ export async function GET(request: NextRequest) {
         }
 
         // 4. Establish Session (Set Cookie)
-        // Determine if we're on localhost to allow insecure cookies
         const hostname = new URL(request.url).hostname;
         const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
         const isSecure = process.env.NODE_ENV === 'production' && !isLocalhost;
 
-        console.log(`[Auth Callback] Setting cookies. Host: ${hostname}, isLocalhost: ${isLocalhost}, isSecure: ${isSecure}`);
+        console.log(`[Auth Callback] Setting cookies. Host: ${hostname}, isSecure: ${isSecure}, redirecting to: ${redirectUrl}`);
 
-        // Use a 302 redirect for broader browser compatibility with Set-Cookie
         const responseRedirect = NextResponse.redirect(new URL(redirectUrl, request.url), {
             status: 302
         });
 
-        // Set the token in a secure, HTTP-only cookie on the response
         const cookieOptions = {
             httpOnly: true,
             secure: isSecure,
@@ -116,11 +111,10 @@ export async function GET(request: NextRequest) {
         responseRedirect.cookies.set('auth_token', token, cookieOptions);
         responseRedirect.cookies.set('token', token, cookieOptions);
 
-        // Also store userId in a readable cookie if available
         if (user.id || user._id) {
             const userId = user.id || user._id;
             responseRedirect.cookies.set('userId', userId.toString(), {
-                httpOnly: false, // Allow client-side access
+                httpOnly: false,
                 secure: isSecure,
                 sameSite: 'lax' as const,
                 maxAge: 60 * 60 * 24 * 7,
@@ -132,6 +126,12 @@ export async function GET(request: NextRequest) {
 
     } catch (error: any) {
         console.error('[Auth Callback] CRITICAL UNEXPECTED ERROR:', error);
-        return NextResponse.redirect(new URL(`/?error=server_error&msg=${encodeURIComponent(error.message || 'Unknown')}`, request.url));
+        // Ensure we always return a redirect even on error to prevent blank pages or generic 500s
+        try {
+            return NextResponse.redirect(new URL(`/?error=server_error&msg=${encodeURIComponent(error.message || 'Unknown')}`, request.url));
+        } catch (redirectError) {
+            return new NextResponse('Internal Server Error during auth callback', { status: 500 });
+        }
     }
 }
+
