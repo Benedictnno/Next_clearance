@@ -4,21 +4,22 @@ import { useEffect, useState } from 'react';
 import Image from "next/image";
 
 interface OfficeStatus {
-  officeId: string;
-  officeName: string;
-  stepNumber: number;
-  status: 'not_started' | 'pending' | 'approved' | 'rejected';
-  submittedAt?: string;
-  reviewedAt?: string;
-  comment?: string;
+    officeId: string;
+    officeName: string;
+    stepNumber: number;
+    status: 'not_started' | 'pending' | 'approved' | 'rejected';
+    submittedAt?: string;
+    reviewedAt?: string;
+    comment?: string;
 }
 
 interface StudentInfo {
-  name: string;
-  matricNumber: string;
-  faculty: string;
-  department: string;
-  level: string;
+    name: string;
+    matricNumber: string;
+    faculty: string;
+    department: string;
+    level: string;
+    profilePictureUrl?: string;
 }
 
 export default function SlipPage() {
@@ -43,7 +44,7 @@ export default function SlipPage() {
                 }
             });
             const clearanceData = await clearanceRes.json();
-            
+
             if (clearanceData.success) {
                 setOffices(clearanceData.data.offices || []);
             }
@@ -59,7 +60,7 @@ export default function SlipPage() {
                 }
             });
             const profileData = await profileRes.json();
-            
+
             if (profileData.success) {
                 const student = profileData.data;
                 setStudentInfo({
@@ -67,7 +68,8 @@ export default function SlipPage() {
                     matricNumber: student.matricNumber || clearanceData.data?.studentMatricNumber || 'N/A',
                     faculty: student.faculty?.name || 'N/A',
                     department: student.department?.name || 'N/A',
-                    level: student.level || 'N/A'
+                    level: student.level || 'N/A',
+                    profilePictureUrl: student.profilePictureUrl
                 });
             } else {
                 // Fallback to clearance data
@@ -86,9 +88,9 @@ export default function SlipPage() {
         }
     }
 
-	function handlePrint() {
-		window.print()
-	}
+    function handlePrint() {
+        window.print()
+    }
 
     function formatDate(dateString?: string): string {
         if (!dateString) return '__________';
@@ -106,7 +108,7 @@ export default function SlipPage() {
         );
     }
 
-	return (
+    return (
         <div className="px-4 py-6 mx-auto max-w-[900px]">
             <div className="bg-white text-black print:bg-white print:text-black border-2 border-black shadow-lg">
                 {/* Header */}
@@ -114,25 +116,34 @@ export default function SlipPage() {
                     <div className="flex items-center justify-between gap-6">
                         {/* Logo */}
                         <div className="flex-shrink-0">
-                            <Image 
-                                src="/assets/eksulogo.png" 
-                                alt="EKSU" 
-                                width={180} 
-                                height={180} 
-                                className="w-[180px] h-auto" 
+                            <Image
+                                src="/assets/eksulogo.png"
+                                alt="EKSU"
+                                width={180}
+                                height={180}
+                                className="w-[180px] h-auto"
                             />
                         </div>
-                        
+
                         {/* Center Text */}
                         <div className="flex-1 text-center leading-tight">
                             <h1 className="text-[16px] font-bold tracking-wide uppercase">EKITI STATE UNIVERSITY, ADO-EKITI</h1>
                             <p className="text-[14px] font-bold mt-2">REGISTRY</p>
                             <p className="text-[14px] font-bold mt-2">CLEARANCE FORM FOR FINAL YEAR STUDENTS</p>
                         </div>
-                        
-                        {/* No. Box */}
-                        <div className="flex-shrink-0 border-2 border-black w-[90px] h-[90px] flex items-center justify-center">
-                            <div className="text-[12px] font-semibold text-center">No.</div>
+
+                        {/* Profile Picture */}
+                        <div className="flex-shrink-0 flex items-center gap-4">
+                            {studentInfo?.profilePictureUrl && (
+                                <div className="w-[100px] h-[110px] border-2 border-black overflow-hidden relative">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={studentInfo.profilePictureUrl}
+                                        alt="Student Passport"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -146,7 +157,7 @@ export default function SlipPage() {
                 <div className="px-4 py-4 text-[11px]">
                     <div className="grid grid-cols-2 gap-x-8 gap-y-2">
                         <div className="flex">
-                            <span className="font-bold">NAME OF GRADUATING<br/>STUDENT:</span>
+                            <span className="font-bold">NAME OF GRADUATING<br />STUDENT:</span>
                             <span className="ml-2 border-b border-black flex-1">{studentInfo?.name.toUpperCase()}</span>
                         </div>
                         <div className="flex">
@@ -249,13 +260,22 @@ export default function SlipPage() {
 
                     <div className="grid grid-cols-[1fr,160px] items-end gap-4 mt-8">
                         <div>
+                            {/* Student Affairs Signature */}
+                            <div className="h-12 relative">
+                                <img
+                                    src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAkE"
+                                    alt="Officer Signature"
+                                    className="h-full object-contain"
+                                />
+                            </div>
                             <div className="h-[1px] bg-black w-56"></div>
-                            <div className="mt-1 text-[10px]">Student&apos;s Affairs Officer</div>
+                            <div className="mt-1 text-[10px] font-bold">Adebayo Segun Olawale</div>
+                            <div className="text-[9px]">Student&apos;s Affairs Officer</div>
                         </div>
-                        <div className="text-right text-[11px]">Date: __________</div>
+                        <div className="text-right text-[11px]">Date: {new Date().toLocaleDateString('en-GB')}</div>
                     </div>
                 </div>
-			</div>
+            </div>
 
             <div className="mt-4 flex gap-3 no-print">
                 <button onClick={handlePrint} className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
@@ -266,7 +286,7 @@ export default function SlipPage() {
                     <span>⬅</span>
                     <span>Back to Dashboard</span>
                 </a>
-			</div>
+            </div>
 
             <style jsx global>{`
                 /* Exact print layout tuning */
@@ -281,8 +301,8 @@ export default function SlipPage() {
                 /* Make checkboxes perfectly square */
                 .w-4.h-4 { width: 12px; height: 12px; }
             `}</style>
-		</div>
-	)
+        </div>
+    )
 }
 
 

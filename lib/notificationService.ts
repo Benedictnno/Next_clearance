@@ -37,7 +37,7 @@ class NotificationService {
   ): Promise<string> {
     try {
       const { notifications } = await collections();
-      
+
       const notification = {
         userId,
         title,
@@ -67,7 +67,7 @@ class NotificationService {
   ): Promise<Notification[]> {
     try {
       const { notifications } = await collections();
-      
+
       const query: any = { userId };
       if (unreadOnly) {
         query.isRead = false;
@@ -102,7 +102,7 @@ class NotificationService {
   async markAsRead(notificationId: string, userId: string): Promise<boolean> {
     try {
       const { notifications } = await collections();
-      
+
       const result = await notifications.updateOne(
         { _id: new Object(notificationId), userId },
         { $set: { isRead: true } }
@@ -121,7 +121,7 @@ class NotificationService {
   async markAllAsRead(userId: string): Promise<number> {
     try {
       const { notifications } = await collections();
-      
+
       const result = await notifications.updateMany(
         { userId, isRead: false },
         { $set: { isRead: true } }
@@ -140,7 +140,7 @@ class NotificationService {
   async deleteNotification(notificationId: string, userId: string): Promise<boolean> {
     try {
       const { notifications } = await collections();
-      
+
       const result = await notifications.deleteOne({
         _id: new Object(notificationId),
         userId
@@ -159,7 +159,7 @@ class NotificationService {
   async getUnreadCount(userId: string): Promise<number> {
     try {
       const { notifications } = await collections();
-      
+
       const count = await notifications.countDocuments({
         userId,
         isRead: false
@@ -182,7 +182,7 @@ class NotificationService {
     isCompleted: boolean = false
   ): Promise<string> {
     const title = isCompleted ? 'Clearance Completed!' : 'Step Approved';
-    const message = isCompleted 
+    const message = isCompleted
       ? `Congratulations! Your clearance process is now complete. You can download your clearance certificate and NYSC form.`
       : `Your submission for step ${stepNumber}: ${stepName} has been approved. ${isCompleted ? 'Your clearance is now complete!' : 'You can now proceed to the next step.'}`;
 
@@ -237,6 +237,25 @@ class NotificationService {
   }
 
   /**
+   * Notify an officer that a new submission has arrived for their office
+   */
+  async notifyOfficerNewSubmission(
+    officerUserId: string,
+    studentName: string,
+    officeName: string,
+    studentMatricNumber?: string
+  ): Promise<string> {
+    const matricInfo = studentMatricNumber ? ` (${studentMatricNumber})` : '';
+    return await this.createNotification(
+      officerUserId,
+      '📬 New Clearance Submission',
+      `${studentName}${matricInfo} has submitted documents to the ${officeName}. Please review and take action.`,
+      'warning',
+      { type: 'officer_new_submission', studentName, officeName, studentMatricNumber }
+    );
+  }
+
+  /**
    * Create system notifications
    */
   async notifySystemMaintenance(
@@ -245,7 +264,7 @@ class NotificationService {
     scheduledTime?: Date
   ): Promise<string> {
     const title = scheduledTime ? 'Scheduled Maintenance' : 'System Maintenance';
-    const fullMessage = scheduledTime 
+    const fullMessage = scheduledTime
       ? `Scheduled maintenance: ${message}. Time: ${scheduledTime.toLocaleString()}`
       : message;
 
@@ -277,7 +296,7 @@ class NotificationService {
   async getNotificationPreferences(userId: string): Promise<NotificationPreferences | null> {
     try {
       const { notificationPreferences } = await collections();
-      
+
       const prefs = await notificationPreferences.findOne({ userId });
       if (!prefs) return null;
 
@@ -308,7 +327,7 @@ class NotificationService {
   ): Promise<boolean> {
     try {
       const { notificationPreferences } = await collections();
-      
+
       await notificationPreferences.updateOne(
         { userId },
         { $set: preferences },
@@ -328,7 +347,7 @@ class NotificationService {
   async cleanupOldNotifications(): Promise<number> {
     try {
       const { notifications } = await collections();
-      
+
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - 30);
 

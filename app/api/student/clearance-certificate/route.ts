@@ -30,6 +30,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Student data not found' }, { status: 404 });
     }
 
+    // Attach profile picture
+    studentData.profilePictureUrl = (user as any).profilePictureUrl;
+
     // Get clearance steps data
     const stepsData = await pdfGenerator.getClearanceStepsForPDF(user.student.id);
 

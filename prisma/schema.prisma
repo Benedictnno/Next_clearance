@@ -54,6 +54,8 @@ model User {
   email       String   @unique
   password    String?
   name        String?
+  profilePictureUrl String?
+  signatureUrl String?
   role        Role     @default(STUDENT)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -113,7 +113,8 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
 
         // AUTHORITATIVE CHECK: Fetch fresh data from Core API if possible
         try {
-            const coreResponse = await fetch('https://coreeksu.vercel.app/api/users/me', {
+            const coreApiUrl = process.env.CORE_API_URL || 'https://coreeksu.vercel.app';
+            const coreResponse = await fetch(`${coreApiUrl}/api/users/me`, {
                 headers: {
                     'Cookie': `token=${token}`,
                     'Authorization': `Bearer ${token}`
@@ -159,6 +160,7 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
                         else normalized.officeRole = pos;
                     }
 
+                    normalized.profilePictureUrl = coreUser.profilePictureUrl || normalized.profilePictureUrl;
                     normalized.name = coreUser.name || normalized.name;
                     normalized.matricNumber = coreUser.matricNumber || normalized.matricNumber;
                     normalized.department = coreUser.department || normalized.department;

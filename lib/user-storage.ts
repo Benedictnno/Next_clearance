@@ -134,7 +134,7 @@ export const logout = async (): Promise<void> => {
 // COREEKSU API UTILITIES
 // ============================================
 
-const COREEKSU_BASE_URL = 'https://coreeksu.vercel.app';
+const COREEKSU_BASE_URL = process.env.NEXT_PUBLIC_CORE_API_URL || process.env.CORE_API_URL || 'https://coreeksu.vercel.app';
 
 /**
  * Fetch user details from CoreEKSU API using a token.
@@ -221,6 +221,7 @@ export interface CoreEKSUUser {
     phoneNumber?: string;
     gender?: string;
     profilePictureUrl?: string;
+    signatureUrl?: string;
     admissionYear?: number;
     yearsSinceAdmission?: number;
     [key: string]: unknown;

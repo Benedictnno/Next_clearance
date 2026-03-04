@@ -18,7 +18,7 @@ const SubmitSchema = z.object({
     fileName: z.string(),
     fileUrl: z.string().min(1, 'File URL is required'),
     fileType: z.string(),
-  })).min(1, 'At least one document is required'),
+  })).optional().default([]),
   officerId: z.string().optional(),
 });
 

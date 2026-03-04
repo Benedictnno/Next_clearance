@@ -25,6 +25,7 @@ export interface JWTPayload {
   name?: string;
   phoneNumber?: string;
   profilePictureUrl?: string;
+  signatureUrl?: string;
   department?: string;
   gender?: string;
   admissionYear?: number;
@@ -114,7 +115,7 @@ export async function verifyToken(token: string) {
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
+  const token = cookieStore.get('auth_token')?.value || cookieStore.get('token')?.value;
 
   if (!token) return null;
 
@@ -160,6 +161,8 @@ export async function getCurrentUser() {
     payload.faculty = coreUser.faculty || payload.faculty;
     payload.phoneNumber = coreUser.phoneNumber || payload.phoneNumber;
     payload.gender = coreUser.gender || payload.gender;
+    payload.profilePictureUrl = coreUser.profilePictureUrl || payload.profilePictureUrl;
+    payload.signatureUrl = coreUser.signatureUrl || payload.signatureUrl;
     payload.admissionYear = coreUser.admissionYear || payload.admissionYear;
     payload.yearsSinceAdmission = coreUser.yearsSinceAdmission || payload.yearsSinceAdmission;
 
@@ -211,6 +214,32 @@ export async function getCurrentUser() {
     user = null;
   }
 
+  // JIT Sync: Sync profile details if they changed
+  if (user && (
+    (payload.profilePictureUrl && user.profilePictureUrl !== payload.profilePictureUrl) ||
+    (payload.signatureUrl && user.signatureUrl !== payload.signatureUrl) ||
+    (payload.name && user.name !== payload.name)
+  )) {
+    console.log(`Syncing profile details for existing user ${user.email}`);
+    try {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          profilePictureUrl: payload.profilePictureUrl || user.profilePictureUrl,
+          signatureUrl: payload.signatureUrl || user.signatureUrl,
+          name: payload.name || user.name
+        },
+        include: {
+          student: { include: { department: { include: { hodOfficer: true } }, faculty: true } },
+          officer: { include: { department: true, assignedSteps: true } },
+          admin: true,
+        }
+      });
+    } catch (syncError) {
+      console.error('Error syncing profile details:', syncError);
+    }
+  }
+
   // JIT Sync: If user exists but role has changed or officer record is missing
   if (user && payload.role === 'OFFICER' && (!user.officer || user.role !== 'OFFICER')) {
     console.log(`Syncing role change for existing user ${user.email}: ${user.role} -> OFFICER`);
@@ -220,7 +249,8 @@ export async function getCurrentUser() {
         where: { id: user.id },
         data: {
           role: 'OFFICER',
-          externalId: user.externalId || lookupUserId
+          externalId: user.externalId || lookupUserId,
+          profilePictureUrl: payload.profilePictureUrl || user.profilePictureUrl
         }
       });
 
@@ -269,7 +299,8 @@ export async function getCurrentUser() {
             'BURSAR': ['bursary'],
             'LIBRARIAN': ['university_librarian'],
             'LIBRARY': ['university_librarian'],
-            'OVERSEER': [],
+            'OVERSEER': ['student_affairs'],
+            'STUDENT_AFFAIRS': ['student_affairs'],
             'REGISTRAR': ['exams_transcript'],
             'EXAMS_TRANSCRIPT': ['exams_transcript'],
             'SPORTS': ['sports_council'],
@@ -350,6 +381,8 @@ export async function getCurrentUser() {
           externalId: lookupUserId,
           email: payload.email,
           name: payload.name,
+          profilePictureUrl: payload.profilePictureUrl,
+          signatureUrl: payload.signatureUrl,
           role: payload.role as any || 'STUDENT',
         },
         include: {
@@ -494,6 +527,8 @@ export async function getCurrentUser() {
             'CLINIC': ['clinic'],
             'DEAN': ['dean'],
             'REGISTRAR': ['registrar'],
+            'OVERSEER': ['student_affairs'],
+            'STUDENT_AFFAIRS': ['student_affairs'],
           };
           assignedOffices = roleToOffice[payload.officeRole.toUpperCase()] || [];
         }
@@ -748,6 +783,8 @@ export async function getCurrentUser() {
       'SECURITY': ['security_office'],
       'ADVANCEMENT': ['advancement_linkages'],
       'ADVANCEMENT_LINKAGES': ['advancement_linkages'],
+      'OVERSEER': ['student_affairs'],
+      'STUDENT_AFFAIRS': ['student_affairs'],
     };
 
     let payloadOffices = payload.assignedOffices;
@@ -770,6 +807,8 @@ export async function getCurrentUser() {
       'AUDIT': 'Internal Audit',
       'SECURITY': 'Security Office',
       'ADVANCEMENT_LINKAGES': 'Office of Advancement and Linkages',
+      'OVERSEER': 'Student Affairs',
+      'STUDENT_AFFAIRS': 'Student Affairs',
     };
 
     const targetOfficeName = payload.officeRole ? (officeNameMapping[payload.officeRole.toUpperCase()] || payload.officeRole) : user.officer.assignedOfficeName;
@@ -838,6 +877,21 @@ export async function getCurrentUser() {
     }
   }
 
+  // Attach token payload data and sync if changed
+  if (user && payload.profilePictureUrl && user.profilePictureUrl !== payload.profilePictureUrl) {
+    try {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { profilePictureUrl: payload.profilePictureUrl }
+      });
+      user.profilePictureUrl = payload.profilePictureUrl;
+    } catch (e) {
+      console.error('[AuthSync] Failed to sync profile picture:', e);
+    }
+  } else if (user && payload.profilePictureUrl) {
+    user.profilePictureUrl = payload.profilePictureUrl;
+  }
+
   return user;
 }
 
@@ -849,6 +903,7 @@ function createVirtualUser(payload: JWTPayload) {
       email: payload.email,
       role: payload.role as any,
       isActive: true,
+      profilePictureUrl: payload.profilePictureUrl,
       createdAt: new Date(),
       updatedAt: new Date(),
       student: {
@@ -915,12 +970,16 @@ export async function setAuthCookie(token: string) {
   const cookieStore = await cookies();
   const isSecure = process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_APP_URL?.startsWith('https');
 
-  cookieStore.set('auth_token', token, {
+  const cookieOptions = {
     httpOnly: true,
     secure: isSecure,
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
+    path: '/',
+  };
+
+  cookieStore.set('auth_token', token, cookieOptions);
+  cookieStore.set('token', token, cookieOptions);
 }
 
 /**
@@ -975,7 +1034,7 @@ export async function createSession(userData: {
 export async function getSession() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
+    const token = cookieStore.get('auth_token')?.value || cookieStore.get('token')?.value;
 
     if (!token) return null;
 

@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Student data not found' }, { status: 404 });
     }
 
+    // Attach profile picture
+    studentData.profilePictureUrl = (user as any).profilePictureUrl;
+
     // Generate form number
     const formNumber = `EKSU-NYSC-${new Date().getFullYear()}-${user.student.id.slice(-6)}`;
 

@@ -69,13 +69,13 @@ export default function EnhancedStudentDashboard() {
     setLoading(true);
     try {
       // Fetch student profile
-      const profileRes = await fetch( `/api/student/profile`, {
+      const profileRes = await fetch(`/api/student/profile`, {
         credentials: 'include', // Include cookies for authentication
         headers: {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         setStudentProfile(profileData.data);
@@ -96,7 +96,7 @@ export default function EnhancedStudentDashboard() {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (clearanceRes.ok) {
         const data = await clearanceRes.json();
         setClearanceData(data);
@@ -172,6 +172,16 @@ export default function EnhancedStudentDashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      router.push('/');
+    }
+  };
+
   const downloadClearanceSlip = async () => {
     try {
       const response = await fetch('/api/student/clearance-certificate', {
@@ -240,7 +250,7 @@ export default function EnhancedStudentDashboard() {
             <div className="flex items-center space-x-4">
               <NotificationBell />
               <button
-                onClick={() => router.push('/auth/logout')}
+                onClick={handleLogout}
                 className="text-red-600 hover:text-red-700 font-medium"
               >
                 Logout
@@ -281,7 +291,7 @@ export default function EnhancedStudentDashboard() {
                   </svg>
                   <h3 className="mt-4 text-lg font-medium text-gray-900">Start Your Clearance</h3>
                   <p className="mt-2 text-gray-600">
-                    Begin your clearance process to complete your graduation requirements. 
+                    Begin your clearance process to complete your graduation requirements.
                     This process involves approval from 7 different offices.
                   </p>
                 </div>
@@ -336,7 +346,7 @@ export default function EnhancedStudentDashboard() {
             {/* Overall Status */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Status</h3>
-              
+
               {clearanceData ? (
                 <div className="space-y-4">
                   <div>

@@ -136,5 +136,19 @@
     "requiredDocuments": [
       "OTHER"
     ]
+  },
+  {
+    "id": "student_affairs",
+    "stepNumber": 11,
+    "name": "Student Affairs",
+    "description": "Final verification by the Student Affairs office. Upload your completed clearance form, NYSC form, and any other relevant documents for final vetting.",
+    "isDepartmentSpecific": false,
+    "requiresPayment": false,
+    "requiresReceipt": false,
+    "supportingDocsDescription": "Upload your completed clearance form, NYSC mobilization form, and any additional documents required for final clearance.",
+    "requiredDocuments": [
+      "CLEARANCE_FORM",
+      "OTHER"
+    ]
   }
 ]

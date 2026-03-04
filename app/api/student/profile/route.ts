@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import {prisma}  from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 // Ensure this route runs on the Node.js runtime (Prisma is not supported on Edge)
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  
+
   console.log('User from getCurrentUser:', user);
-  
+
   if (!user?.student) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   // Check if this is a virtual user (from external token)
   if (user.student.userId && !user.student.departmentId) {
     console.log('Using virtual user data from token');
-    
+
     // Return profile from virtual user data
     const profile = {
       firstName: user.student.firstName,
@@ -27,8 +27,9 @@ export async function GET(request: NextRequest) {
       level: user.student.level,
       department: user.student.department,
       faculty: user.student.faculty,
+      profilePictureUrl: (user as any).profilePictureUrl,
     };
-    
+
     return NextResponse.json({ success: true, data: profile });
   }
 
@@ -58,8 +59,9 @@ export async function GET(request: NextRequest) {
       level: user.student.level,
       department: user.student.department,
       faculty: user.student.faculty,
+      profilePictureUrl: (user as any).profilePictureUrl,
     };
-    
+
     return NextResponse.json({ success: true, data: profile });
   }
 
@@ -72,6 +74,7 @@ export async function GET(request: NextRequest) {
     level: student.level,
     department: student.department,
     faculty: student.faculty,
+    profilePictureUrl: (user as any).profilePictureUrl,
   };
 
   return NextResponse.json({ success: true, data: profile });

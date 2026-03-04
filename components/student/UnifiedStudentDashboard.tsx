@@ -35,6 +35,7 @@ interface StudentProfile {
     matricNumber: string;
     email: string;
     department?: { name: string };
+    profilePictureUrl?: string;
 }
 
 interface UploadedFile {
@@ -139,7 +140,7 @@ export default function UnifiedStudentDashboard() {
     };
 
     const handleSubmit = async () => {
-        if (!selectedOffice || uploadedFiles.length === 0) {
+        if (!selectedOffice || (selectedOffice !== 'student_affairs' && uploadedFiles.length === 0)) {
             setError('Please select an office and upload at least one document');
             return;
         }
@@ -173,6 +174,16 @@ export default function UnifiedStudentDashboard() {
             setError(err.message || 'Failed to submit documents');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            router.push('/');
+        } catch (error) {
+            console.error('Logout failed:', error);
+            router.push('/');
         }
     };
 
@@ -231,19 +242,28 @@ export default function UnifiedStudentDashboard() {
             <div className="bg-white shadow-sm border-b border-soft-400">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-h2 text-primary-500 font-semibold">
-                                Welcome, {studentProfile.firstName}!
-                            </h1>
-                            <p className="text-label text-dark-600 mt-1">
-                                <span className="data-field inline-block">{studentProfile.matricNumber}</span>
-                                {studentProfile.department && (
-                                    <span className="ml-3 text-dark-600">• {studentProfile.department.name}</span>
-                                )}
-                            </p>
+                        <div className="flex items-center space-x-6">
+                            {studentProfile.profilePictureUrl ? (
+                                <img src={studentProfile.profilePictureUrl} alt="Profile" className="w-16 h-16 rounded-full object-cover border-2 border-primary-200" />
+                            ) : (
+                                <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 text-2xl font-bold">
+                                    {studentProfile.firstName?.charAt(0) || '?'}
+                                </div>
+                            )}
+                            <div>
+                                <h1 className="text-h2 text-primary-500 font-semibold">
+                                    Welcome, {studentProfile.firstName}!
+                                </h1>
+                                <p className="text-label text-dark-600 mt-1">
+                                    <span className="data-field inline-block">{studentProfile.matricNumber}</span>
+                                    {studentProfile.department && (
+                                        <span className="ml-3 text-dark-600">• {studentProfile.department.name}</span>
+                                    )}
+                                </p>
+                            </div>
                         </div>
                         <button
-                            onClick={() => router.push('/auth/logout')}
+                            onClick={handleLogout}
                             className="btn-accent"
                         >
                             Logout
@@ -365,8 +385,16 @@ export default function UnifiedStudentDashboard() {
                                                     <button
                                                         onClick={() => setSelectedOffice(office.officeId)}
                                                         className="btn-primary text-sm"
+                                                        disabled={office.officeId === 'student_affairs' && !status?.canAccessFinalForms}
                                                     >
-                                                        {office.status === 'rejected' ? 'Resubmit' : 'Submit'}
+                                                        {office.officeId === 'student_affairs' && !status?.canAccessFinalForms
+                                                            ? 'Locked'
+                                                            : office.status === 'rejected'
+                                                                ? 'Resubmit'
+                                                                : office.officeId === 'student_affairs'
+                                                                    ? 'Verify & Send'
+                                                                    : 'Submit'
+                                                        }
                                                     </button>
                                                 )}
                                             </div>
@@ -386,14 +414,33 @@ export default function UnifiedStudentDashboard() {
                                     <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                                         <span className="text-5xl">🎉</span>
                                     </div>
-                                    <h3 className="text-h3 font-bold mb-2">All Approved!</h3>
-                                    <p className="text-label mb-4">Congratulations! You can now access your clearance forms.</p>
+                                    <h3 className="text-h3 font-bold mb-2">Clearance Completed!</h3>
+                                    <p className="text-label mb-4">Congratulations! You have been fully cleared.</p>
                                     <button
                                         onClick={() => router.push('/student/slip')}
+                                        className="w-full bg-white text-green-600 px-4 py-3 rounded-lg font-semibold hover:bg-green-50 transition-all duration-120 mb-2"
+                                    >
+                                        Download Final Clearance Slip
+                                    </button>
+                                    <button
+                                        onClick={() => router.push('/student/nysc-form')}
                                         className="w-full bg-white text-green-600 px-4 py-3 rounded-lg font-semibold hover:bg-green-50 transition-all duration-120"
                                     >
-                                        Download Clearance Forms
+                                        Download NYSC Form
                                     </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Mid-Completion Card (Ready for Student Affairs) */}
+                        {status?.canAccessFinalForms && !status?.isCompleted && (
+                            <div className="card bg-gradient-to-br from-secondary-500 to-secondary-600 text-white animate-scale-in">
+                                <div className="text-center">
+                                    <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <span className="text-5xl">📝</span>
+                                    </div>
+                                    <h3 className="text-h3 font-bold mb-2">Final Step!</h3>
+                                    <p className="text-label mb-4">Please Verify & Send your final forms to Student Affairs in the list to complete your clearance.</p>
                                 </div>
                             </div>
                         )}
@@ -404,33 +451,35 @@ export default function UnifiedStudentDashboard() {
                             <div className="space-y-3">
                                 <button
                                     onClick={() => router.push('/student/profile')}
-                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black  hover:bg-green-600 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black  hover:bg-secondary-600 rounded-lg transition-all duration-120"
                                 >
                                     👤 View Profile
                                 </button>
                                 <button
                                     onClick={() => router.push('/student/notifications')}
-                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-green-700 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-secondary-600 rounded-lg transition-all duration-120"
                                 >
                                     🔔 Notifications
                                 </button>
                                 <button
                                     onClick={() => router.push('/student/slip')}
-                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-green-700 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-secondary-600 rounded-lg transition-all duration-120"
+                                    disabled={!status?.canAccessFinalForms}
                                 >
-                                    📄 View/Print Clearance Slip
+                                    📄 {status?.canAccessFinalForms ? 'View/Print Clearance Slip' : 'Clearance Slip (Locked)'}
                                 </button>
                                 <button
                                     onClick={() => router.push('/student/nysc-info')}
-                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-green-700 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black hover:bg-secondary-600 rounded-lg transition-all duration-120"
                                 >
                                     📝 Fill NYSC Information
                                 </button>
                                 <button
                                     onClick={() => router.push('/student/nysc-form')}
-                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black  hover:bg-green-700 rounded-lg transition-all duration-120"
+                                    className="w-full text-left p-3 text-label font-medium hover:text-white text-black  hover:bg-secondary-600 rounded-lg transition-all duration-120"
+                                    disabled={!status?.canAccessFinalForms}
                                 >
-                                    📥 Download NYSC Form
+                                    📥 {status?.canAccessFinalForms ? 'Download NYSC Form' : 'NYSC Form (Locked)'}
                                 </button>
                             </div>
                         </div>
@@ -471,6 +520,44 @@ export default function UnifiedStudentDashboard() {
                             </div>
 
                             <div className="space-y-4">
+                                {selectedOffice === 'student_affairs' ? (
+                                    <div>
+                                    <div className="bg-secondary-50 border-2 border-secondary-200 rounded-lg p-6 mb-4">
+                                        <h4 className="font-semibold text-secondary-900 mb-2 text-h4">Final Verification</h4>
+                                        <p className="text-secondary-800 text-sm mb-4">
+                                            The system will automatically generate your Clearance Certificate and NYSC Form.
+                                            <strong>Please upload any additional required documents (e.g. receipts) below.</strong>
+                                        </p>
+                                        <div className="bg-white rounded-md p-3 space-y-1 border border-secondary-200 text-xs">
+                                            <p><span className="font-semibold">Name:</span> {studentProfile.firstName} {studentProfile.lastName}</p>
+                                            <p><span className="font-semibold">Matric:</span> {studentProfile.matricNumber}</p>
+                                        </div>
+                                    </div>
+
+                                    <label className="block text-label font-medium text-dark-700 mb-2">
+                                        Upload Additional Documents (Receipts, etc.)
+                                    </label>
+                                    <div className="border-2 border-dashed border-secondary-300 rounded-lg p-6 text-center hover:border-secondary-500 hover:bg-secondary-50 transition-all duration-160">
+                                        <input
+                                            type="file"
+                                            multiple
+                                            onChange={handleFileUpload}
+                                            disabled={uploading}
+                                            className="hidden"
+                                            id="file-upload"
+                                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                        />
+                                        <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
+                                            <div className="w-12 h-12 bg-secondary-100 rounded-full flex items-center justify-center mb-2">
+                                                <span className="text-2xl">📎</span>
+                                            </div>
+                                            <p className="text-sm text-dark-700 font-medium">
+                                                {uploading ? 'Uploading...' : 'Click to upload additional documents'}
+                                            </p>
+                                        </label>
+                                    </div>
+                                </div>
+                                ) : (
                                 <div>
                                     <label className="block text-label font-medium text-dark-700 mb-2">
                                         Upload Documents
@@ -496,6 +583,7 @@ export default function UnifiedStudentDashboard() {
                                         </label>
                                     </div>
                                 </div>
+                                )}
 
                                 {uploadedFiles.length > 0 && (
                                     <div>
@@ -531,10 +619,10 @@ export default function UnifiedStudentDashboard() {
                                     </button>
                                     <button
                                         onClick={handleSubmit}
-                                        disabled={submitting || uploadedFiles.length === 0}
+                                        disabled={submitting || (selectedOffice !== 'student_affairs' && uploadedFiles.length === 0)}
                                         className="flex-1 btn-primary"
                                     >
-                                        {submitting ? 'Submitting...' : 'Submit Documents'}
+                                        {submitting ? 'Submitting...' : selectedOffice === 'student_affairs' ? 'Confirm Verify & Send' : 'Submit Documents'}
                                     </button>
                                 </div>
                             </div>

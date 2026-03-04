@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { setAuthCookie } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
 
         if (normalizedRole === 'STUDENT') {
             redirectUrl = '/student/dashboard';
-        } else if (normalizedRole === 'OFFICER') {
+        } else if (normalizedRole === 'OFFICER' || normalizedRole === 'STAFF') {
             redirectUrl = '/officer/dashboard';
             // Check for both ADMIN and SUPER_ADMIN
         } else if (['ADMIN', 'SUPER_ADMIN'].includes(normalizedRole)) {
@@ -91,35 +92,43 @@ export async function GET(request: NextRequest) {
         }
 
         // 4. Establish Session (Set Cookie)
-        const res = NextResponse.redirect(new URL(redirectUrl, request.url));
-
         // Determine if we're on localhost to allow insecure cookies
-        const isLocalhost = request.url.includes('localhost') || request.url.includes('127.0.0.1');
+        const hostname = new URL(request.url).hostname;
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
         const isSecure = process.env.NODE_ENV === 'production' && !isLocalhost;
 
-        // Set the token in a secure, HTTP-only cookie
-        res.cookies.set('auth_token', token, {
+        console.log(`[Auth Callback] Setting cookies. Host: ${hostname}, isLocalhost: ${isLocalhost}, isSecure: ${isSecure}`);
+
+        // Use a 302 redirect for broader browser compatibility with Set-Cookie
+        const responseRedirect = NextResponse.redirect(new URL(redirectUrl, request.url), {
+            status: 302
+        });
+
+        // Set the token in a secure, HTTP-only cookie on the response
+        const cookieOptions = {
             httpOnly: true,
             secure: isSecure,
-            sameSite: 'lax',
+            sameSite: 'lax' as const,
             maxAge: 60 * 60 * 24 * 7, // 7 days
             path: '/',
-        });
+        };
+
+        responseRedirect.cookies.set('auth_token', token, cookieOptions);
+        responseRedirect.cookies.set('token', token, cookieOptions);
 
         // Also store userId in a readable cookie if available
         if (user.id || user._id) {
             const userId = user.id || user._id;
-            res.cookies.set('userId', userId.toString(), {
+            responseRedirect.cookies.set('userId', userId.toString(), {
                 httpOnly: false, // Allow client-side access
                 secure: isSecure,
-                sameSite: 'lax',
+                sameSite: 'lax' as const,
                 maxAge: 60 * 60 * 24 * 7,
                 path: '/',
             });
         }
 
-        console.log('[Auth Callback] Auth cookies established, redirecting to:', redirectUrl);
-        return res;
+        return responseRedirect;
 
     } catch (error: any) {
         console.error('[Auth Callback] CRITICAL UNEXPECTED ERROR:', error);

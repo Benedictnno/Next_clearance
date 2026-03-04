@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { ObjectId } from 'mongodb'; // Keep for ID validation if needed or remove if strictly Prisma
 import { notificationService } from './notificationService';
 import { StepStatus } from '@prisma/client';
+import { pdfGenerator } from './pdfGenerator';
 
 /**
  * Clearance Workflow Service
@@ -22,6 +23,7 @@ export const CLEARANCE_OFFICES = [
   { id: 'internal_audit', aliases: ['audit'], name: 'Internal Audit', step: 8, isDepartmentSpecific: false, isFacultySpecific: false },
   { id: 'advancement_linkages', aliases: ['advancement', 'linkages'], name: 'Office of Advancement and Linkages', step: 9, isDepartmentSpecific: false, isFacultySpecific: false },
   { id: 'security_office', aliases: ['security'], name: 'Security Office', step: 10, isDepartmentSpecific: false, isFacultySpecific: false },
+  { id: 'student_affairs', aliases: ['student_affairs', 'affairs'], name: 'Student Affairs', step: 11, isDepartmentSpecific: false, isFacultySpecific: false },
 ] as const;
 
 export type OfficeId = typeof CLEARANCE_OFFICES[number]['id'];
@@ -313,7 +315,95 @@ class ClearanceWorkflowService {
           }
         });
 
-        // Notification logic...
+        // Notify all officers assigned to this office
+        try {
+          const assignedOfficers = await prisma.officer.findMany({
+            where: { assignedOfficeId: office.id },
+            include: { user: { select: { id: true } } }
+          });
+          for (const officer of assignedOfficers) {
+            if (officer.user?.id) {
+              await notificationService.notifyOfficerNewSubmission(
+                officer.user.id,
+                studentName,
+                office.name,
+                studentMatricNumber
+              );
+            }
+          }
+        } catch (notifErr) {
+          console.warn('[ClearanceWorkflow] Officer notification failed (non-critical):', notifErr);
+        }
+
+        // --- SPECIFIC LOGIC FOR STUDENT AFFAIRS SUBMISSION ---
+        // Automatically generate draft forms and attach them to the submission
+        if (officeId === 'student_affairs') {
+          console.log(`[ClearanceWorkflow] Auto-generating forms for student_affairs submission: ${studentId}`);
+          try {
+            // 1. Generate Clearance Certificate (Draft)
+            const certData = await pdfGenerator.getStudentDataForPDF(studentId);
+            const stepsData = await pdfGenerator.getClearanceStepsForPDF(studentId);
+            if (certData) {
+              const certificateNumber = `DRAFT-CC-${new Date().getFullYear()}-${studentId.slice(-6).toUpperCase()}`;
+              const qrCode = await pdfGenerator.generateQRCode(`https://eksu-clearance.vercel.app/verify/draft-certificate/${certificateNumber}`);
+
+              const pdfBytes = await pdfGenerator.generateClearanceCertificate({
+                student: certData,
+                steps: stepsData,
+                completionDate: new Date(),
+                certificateNumber,
+                qrCode,
+              });
+
+              // In a real scenario, we would upload to Cloudinary/Blob storage
+              // For this demo/mock environment, we'll use a placeholder URL 
+              // but create the document record so it appears in the list
+              await prisma.document.create({
+                data: {
+                  fileName: `Clearance_Certificate_Draft.pdf`,
+                  fileSize: pdfBytes.length,
+                  mimeType: 'application/pdf',
+                  documentType: 'CLEARANCE_FORM',
+                  cloudinaryPublicId: 'auto-generated-cert',
+                  cloudinaryUrl: `https://placeholder-storage.com/certs/${studentId}.pdf`,
+                  clearanceProgressId: newSubmission.id,
+                  studentId: studentId
+                }
+              });
+            }
+
+            // 2. Generate NYSC Form (Draft)
+            const nyscInfo = await prisma.nYSCInfo.findUnique({ where: { studentId } });
+            if (certData && nyscInfo) {
+              const formNumber = `DRAFT-NYSC-${new Date().getFullYear()}-${studentId.slice(-6).toUpperCase()}`;
+              const qrCode = await pdfGenerator.generateQRCode(`https://eksu-clearance.vercel.app/verify/draft-nysc/${formNumber}`);
+
+              const nyscPdfBytes = await pdfGenerator.generateNYSCForm({
+                student: certData,
+                nyscInfo,
+                formNumber,
+                generatedDate: new Date(),
+                qrCode,
+              });
+
+              await prisma.document.create({
+                data: {
+                  fileName: `NYSC_Mobilization_Form_Draft.pdf`,
+                  fileSize: nyscPdfBytes.length,
+                  mimeType: 'application/pdf',
+                  documentType: 'CLEARANCE_FORM',
+                  cloudinaryPublicId: 'auto-generated-nysc',
+                  cloudinaryUrl: `https://placeholder-storage.com/nysc/${studentId}.pdf`,
+                  clearanceProgressId: newSubmission.id,
+                  studentId: studentId
+                }
+              });
+            }
+          } catch (genErr) {
+            console.warn('[ClearanceWorkflow] Auto-generation of forms failed:', genErr);
+          }
+        }
+
         return { success: true, message: 'Submitted successfully', submissionId: newSubmission.id };
       }
 
@@ -385,6 +475,7 @@ class ClearanceWorkflowService {
       const approvedCount = offices.filter(o => o.status === 'approved').length;
       const overallProgress = Math.round((approvedCount / CLEARANCE_OFFICES.length) * 100);
       const isCompleted = approvedCount === CLEARANCE_OFFICES.length;
+      const approvedCoreSteps = offices.filter(o => o.status === 'approved' && o.officeId !== 'student_affairs').length;
 
       return {
         studentId,
@@ -393,7 +484,7 @@ class ClearanceWorkflowService {
         offices,
         overallProgress,
         isCompleted,
-        canAccessFinalForms: isCompleted
+        canAccessFinalForms: approvedCoreSteps >= 10
       };
 
     } catch (error) {
@@ -664,11 +755,10 @@ class ClearanceWorkflowService {
       // Check if all offices are approved
       const hodKey = student.departmentId ? `hod-${student.departmentId}` : 'hod-unknown';
 
-      // Count approved submissions
-      const approvedCount = request.steps.filter(s => s.status === 'APPROVED').length;
+      // Count approved submissions (excluding student_affairs as it's the final post-form step)
+      const approvedCoreSteps = request.steps.filter(s => s.status === 'APPROVED' && s.officeId !== 'student_affairs').length;
 
-      // Student needs all 10 offices approved
-      return approvedCount === CLEARANCE_OFFICES.length;
+      return approvedCoreSteps >= 10;
 
     } catch (error) {
       console.error('Error checking final forms access:', error);
@@ -739,28 +829,44 @@ class ClearanceWorkflowService {
       const requests = await prisma.clearanceRequest.findMany({
         include: {
           student: {
-            include: { department: true, faculty: true }
+            include: { department: true, faculty: true, user: { select: { profilePictureUrl: true } } }
           },
-          steps: true
+          steps: {
+            include: { documents: true }
+          }
         },
         orderBy: { createdAt: 'desc' }
       });
 
-      return requests.map(r => ({
-        id: r.id,
-        studentId: r.studentId,
-        studentName: `${r.student.firstName} ${r.student.lastName}`,
-        studentMatricNumber: r.student.matricNumber,
-        studentDepartment: r.student.department?.name,
-        studentFaculty: r.student.faculty?.name,
-        currentStep: r.currentStep,
-        status: r.status,
-        startedAt: r.createdAt,
-        updatedAt: r.updatedAt,
-        completedSteps: r.steps.filter(s => s.status === 'APPROVED').length,
-        totalSteps: CLEARANCE_OFFICES.length,
-        isFullyCompleted: r.status === 'COMPLETED'
-      }));
+      return requests.map(r => {
+        const saStep = r.steps.find(s => s.officeId === 'student_affairs');
+        const coreApproved = r.steps.filter(s => s.status === 'APPROVED' && s.officeId !== 'student_affairs').length;
+        return {
+          id: r.id,
+          studentId: r.studentId,
+          studentName: `${r.student.firstName} ${r.student.lastName}`,
+          studentMatricNumber: r.student.matricNumber,
+          studentDepartment: r.student.department?.name,
+          studentFaculty: r.student.faculty?.name,
+          studentProfilePictureUrl: r.student.user?.profilePictureUrl || null,
+          currentStep: r.currentStep,
+          status: r.status,
+          startedAt: r.createdAt,
+          updatedAt: r.updatedAt,
+          completedSteps: r.steps.filter(s => s.status === 'APPROVED').length,
+          coreCompletedSteps: coreApproved,
+          totalSteps: CLEARANCE_OFFICES.length,
+          isFullyCompleted: r.status === 'COMPLETED',
+          isCoreComplete: coreApproved >= 10,
+          studentAffairsSubmissionId: saStep?.id || null,
+          studentAffairsStatus: saStep?.status || 'NOT_STARTED',
+          studentAffairsDocs: saStep?.documents.map(d => ({
+            fileName: d.fileName,
+            fileUrl: d.cloudinaryUrl,
+            fileType: d.mimeType,
+          })) || [],
+        };
+      });
     } catch (error) {
       console.error('Error getting global requests:', error);
       throw error;
@@ -769,6 +875,14 @@ class ClearanceWorkflowService {
 
   async approveSubmission(submissionId: string, officerId: string, comment?: string) {
     if (!prisma) throw new Error("No Prisma");
+
+    const submission = await prisma.clearanceProgress.findUnique({
+      where: { id: submissionId },
+      include: { request: true }
+    });
+
+    if (!submission) return { success: false, message: "Submission not found" };
+
     await prisma.clearanceProgress.update({
       where: { id: submissionId },
       data: {
@@ -778,7 +892,56 @@ class ClearanceWorkflowService {
         actionedAt: new Date()
       }
     });
-    // Notifications logic...
+
+    // If Student Affairs approves, the entire request is COMPLETED
+    if (submission.officeId === 'student_affairs' && submission.requestId) {
+      await prisma.clearanceRequest.update({
+        where: { id: submission.requestId },
+        data: {
+          status: 'COMPLETED',
+          completedAt: new Date()
+        }
+      });
+
+      // Notify student
+      try {
+        const student = await prisma.student.findUnique({
+          where: { id: submission.request.studentId },
+          include: { user: { select: { id: true } } }
+        });
+        if (student?.user?.id) {
+          await notificationService.createNotification(
+            student.user.id,
+            'Clearance Fully Completed',
+            'Congratulations! Your university clearance is now fully completed and approved by Student Affairs.',
+            'success',
+            { type: 'clearance_completed' }
+          );
+        }
+      } catch (notifErr) {
+        console.warn('[ClearanceWorkflow] Completion notification failed:', notifErr);
+      }
+    }
+
+    // Notifications logic for regular steps...
+    try {
+      const student = await prisma.student.findUnique({
+        where: { id: submission.request.studentId },
+        include: { user: { select: { id: true } } }
+      });
+      if (student?.user?.id && submission.officeId !== 'student_affairs') {
+        await notificationService.createNotification(
+          student.user.id,
+          'Clearance Step Approved',
+          `Your clearance step for ${submission.officeName} has been approved.`,
+          'info',
+          { type: 'step_approved', officeId: submission.officeId }
+        );
+      }
+    } catch (notifErr) {
+      console.warn('[ClearanceWorkflow] Step approval notification failed:', notifErr);
+    }
+
     return { success: true, message: "Approved" };
   }
 

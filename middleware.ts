@@ -23,9 +23,16 @@ const PROTECTED_ROUTE_PREFIXES = [
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
+  // Debug logging for cookie issues
+  const cookieNames = Array.from(request.cookies.getAll()).map(c => c.name);
+  if (pathname.includes('dashboard')) {
+    console.log(`[Middleware] Path: ${pathname}, Cookies: ${cookieNames.join(', ') || 'NONE'}`);
+  }
+
   // Get token from URL or cookies
   const tokenFromUrl = searchParams.get('token');
-  const tokenFromCookie = request.cookies.get('auth_token')?.value;
+  // Support both auth_token and token for compatibility
+  const tokenFromCookie = request.cookies.get('auth_token')?.value || request.cookies.get('token')?.value;
 
   // Also check for userId from CoreEKSU
   const userIdFromUrl = searchParams.get('userId');
@@ -80,6 +87,8 @@ export async function middleware(request: NextRequest) {
       redirectUrl = '/officer/dashboard';
     } else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
       redirectUrl = '/admin/dashboard';
+    } else if (userRole === " ") {
+      redirectUrl = 'https://eksucore.vercel.app/'
     }
 
     // Check if there's a custom return URL
@@ -95,13 +104,17 @@ export async function middleware(request: NextRequest) {
     const isLocalhost = request.url.includes('localhost') || request.url.includes('127.0.0.1');
     const isSecure = process.env.NODE_ENV === 'production' && !isLocalhost;
 
-    response.cookies.set('auth_token', tokenFromUrl, {
+    // Set both for migration/compatibility
+    const cookieOptions = {
       httpOnly: true,
       secure: isSecure,
-      sameSite: 'lax',
+      sameSite: 'lax' as const,
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
-    });
+    };
+
+    response.cookies.set('auth_token', tokenFromUrl, cookieOptions);
+    response.cookies.set('token', tokenFromUrl, cookieOptions);
 
     // Also store userId in a readable cookie if available from payload
     if (payload.userId) {

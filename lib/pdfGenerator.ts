@@ -9,6 +9,8 @@ export interface StudentData {
   department: string;
   faculty: string;
   level: string;
+  profilePictureUrl?: string;
+  signatureUrl?: string;
 }
 
 export interface ClearanceStepData {
@@ -51,6 +53,8 @@ export interface NYSCFormData {
   formNumber: string;
   generatedDate: Date;
   qrCode: string;
+  hodSignatureUrl?: string;
+  admissionOfficerSignatureUrl?: string;
 }
 
 class PDFGenerator {
@@ -84,8 +88,49 @@ class PDFGenerator {
       color: rgb(0, 0, 0),
     });
 
+    // Profile Picture Top Right
+    if (data.student.profilePictureUrl) {
+      try {
+        let imageBuffer: ArrayBuffer;
+
+        if (data.student.profilePictureUrl.startsWith('data:')) {
+          // Handle base64 data URL
+          const base64Data = data.student.profilePictureUrl.split(',')[1];
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          imageBuffer = bytes.buffer;
+        } else {
+          // Handle standard URL
+          const imageRes = await fetch(data.student.profilePictureUrl);
+          if (!imageRes.ok) throw new Error('Failed to fetch profile picture');
+          imageBuffer = await imageRes.arrayBuffer();
+        }
+
+        let image;
+        try {
+          image = await pdfDoc.embedJpg(imageBuffer);
+        } catch {
+          image = await pdfDoc.embedPng(imageBuffer);
+        }
+
+        if (image) {
+          page.drawImage(image, {
+            x: width - 100,
+            y: height - 120,
+            width: 50,
+            height: 50,
+          });
+        }
+      } catch (err) {
+        console.warn('Could not embed profile picture:', err);
+      }
+    }
+
     // Certificate number
-    page.drawText(`Certificate No: ${data.certificateNumber}`, {
+    page.drawText(`Certificate No: ${data.certificateNumber} `, {
       x: 50,
       y: height - 110,
       size: 10,
@@ -104,11 +149,11 @@ class PDFGenerator {
     });
 
     const infoItems = [
-      `Name: ${data.student.name}`,
-      `Matric Number: ${data.student.matricNumber}`,
-      `Department: ${data.student.department}`,
-      `Faculty: ${data.student.faculty}`,
-      `Level: ${data.student.level}`,
+      `Name: ${data.student.name} `,
+      `Matric Number: ${data.student.matricNumber} `,
+      `Department: ${data.student.department} `,
+      `Faculty: ${data.student.faculty} `,
+      `Level: ${data.student.level} `,
     ];
 
     infoItems.forEach((item, index) => {
@@ -202,7 +247,7 @@ class PDFGenerator {
 
     // Completion date
     const completionY = stepsY - 200 - (data.steps.length * 20);
-    page.drawText(`Clearance Completed: ${data.completionDate.toLocaleDateString()}`, {
+    page.drawText(`Clearance Completed: ${data.completionDate.toLocaleDateString()} `, {
       x: 50,
       y: completionY,
       size: 10,
@@ -210,14 +255,27 @@ class PDFGenerator {
       color: rgb(0, 0, 0),
     });
 
-    // QR Code (placeholder - would need actual QR code generation)
-    page.drawText('QR Code for Verification', {
-      x: 450,
-      y: completionY - 50,
-      size: 8,
-      font: helveticaFont,
-      color: rgb(0.5, 0.5, 0.5),
-    });
+    // Add QR Code for Verification
+    if (data.qrCode) {
+      try {
+        const qrImage = await pdfDoc.embedPng(data.qrCode);
+        page.drawImage(qrImage, {
+          x: width - 100,
+          y: completionY - 40,
+          width: 60,
+          height: 60,
+        });
+        page.drawText('Scan to Verify', {
+          x: width - 95,
+          y: completionY - 50,
+          size: 7,
+          font: helveticaFont,
+          color: rgb(0.5, 0.5, 0.5),
+        });
+      } catch (err) {
+        console.warn('Could not embed QR code in certificate:', err);
+      }
+    }
 
     // Footer
     page.drawText('This certificate is digitally generated and verifiable online.', {
@@ -244,6 +302,40 @@ class PDFGenerator {
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+
+    // Helper for drawing signatures
+    const drawSignature = async (url: string | undefined, x: number, y: number, width: number = 100, height: number = 40) => {
+      if (!url) return;
+      try {
+        let imageBuffer: ArrayBuffer;
+        if (url.startsWith('data:')) {
+          const base64Data = url.split(',')[1];
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          imageBuffer = bytes.buffer;
+        } else {
+          const imageRes = await fetch(url);
+          if (!imageRes.ok) throw new Error('Failed to fetch signature');
+          imageBuffer = await imageRes.arrayBuffer();
+        }
+
+        let image;
+        try {
+          image = await pdfDoc.embedPng(imageBuffer);
+        } catch {
+          image = await pdfDoc.embedJpg(imageBuffer);
+        }
+
+        if (image) {
+          page.drawImage(image, { x, y, width, height });
+        }
+      } catch (err) {
+        console.warn('Could not embed signature:', err);
+      }
+    };
 
     // --- Header Section ---
     // University Name
@@ -297,6 +389,48 @@ class PDFGenerator {
     page.drawText('&', { x: width - 95, y: height - 100, size: 7, font: helveticaFont });
     page.drawText('write your', { x: width - 105, y: height - 110, size: 7, font: helveticaFont });
     page.drawText('name at the back', { x: width - 115, y: height - 120, size: 7, font: helveticaFont });
+
+    // Add profile picture if available over the box
+    if (data.student.profilePictureUrl) {
+      try {
+        const imageRes = await fetch(data.student.profilePictureUrl);
+        if (imageRes.ok) {
+          const imageBuffer = await imageRes.arrayBuffer();
+          let image;
+          try {
+            image = await pdfDoc.embedJpg(imageBuffer);
+          } catch {
+            image = await pdfDoc.embedPng(imageBuffer);
+          }
+          if (image) {
+            page.drawRectangle({
+              x: width - 130,
+              y: height - 140,
+              width: passportWidth,
+              height: passportHeight,
+              color: rgb(1, 1, 1), // Cover the text
+            });
+            page.drawImage(image, {
+              x: width - 130,
+              y: height - 140,
+              width: passportWidth,
+              height: passportHeight,
+            });
+            // Re-draw border
+            page.drawRectangle({
+              x: width - 130,
+              y: height - 140,
+              width: passportWidth,
+              height: passportHeight,
+              borderWidth: 1,
+              borderColor: rgb(0, 0, 0),
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not embed profile picture:', err);
+      }
+    }
 
     // Introductory text
     page.drawText('In the space provided, please affix one passport photograph, using staple pin and must be', {
@@ -373,8 +507,8 @@ class PDFGenerator {
     page.drawText('6.   Sex (Tick X)', { x: labelX, y: yPos, size: 10, font: helveticaFont });
     const isMale = info?.sex?.toLowerCase() === 'male';
     const isFemale = info?.sex?.toLowerCase() === 'female';
-    page.drawText(`Male ( ${isMale ? 'X' : ' '} )`, { x: 250, y: yPos, size: 10, font: helveticaFont });
-    page.drawText(`Female ( ${isFemale ? 'X' : ' '} )`, { x: 400, y: yPos, size: 10, font: helveticaFont });
+    page.drawText(`Male(${isMale ? 'X' : ' '})`, { x: 250, y: yPos, size: 10, font: helveticaFont });
+    page.drawText(`Female(${isFemale ? 'X' : ' '})`, { x: 400, y: yPos, size: 10, font: helveticaFont });
     yPos -= lineSpacing;
 
     // 7. Date of Birth (Grid)
@@ -385,17 +519,17 @@ class PDFGenerator {
     const boxH = 20;
 
     // Day
-    page.drawRectangle({ x: 150, y: dobBoxY, width: boxW, height: boxH, borderWidth: 1 });
+    page.drawRectangle({ x: 150, y: dobBoxY, width: boxW, height: boxH, borderWidth: 1, color: rgb(1, 1, 1) });
     page.drawText(info?.dateOfBirthDay || '', { x: 162, y: dobBoxY + 5, size: 10, font: helveticaBold });
     page.drawText('.Day', { x: 185, y: dobBoxY - 8, size: 7, font: helveticaFont });
 
     // Month
-    page.drawRectangle({ x: 250, y: dobBoxY, width: boxW * 2, height: boxH, borderWidth: 1 });
+    page.drawRectangle({ x: 250, y: dobBoxY, width: boxW * 2, height: boxH, borderWidth: 1, color: rgb(1, 1, 1) });
     page.drawText(info?.dateOfBirthMonth || '', { x: 260, y: dobBoxY + 5, size: 10, font: helveticaBold });
     page.drawText('Month', { x: 280, y: dobBoxY - 8, size: 7, font: helveticaFont });
 
     // Year
-    page.drawRectangle({ x: 400, y: dobBoxY, width: boxW * 2, height: boxH, borderWidth: 1 });
+    page.drawRectangle({ x: 400, y: dobBoxY, width: boxW * 2, height: boxH, borderWidth: 1, color: rgb(1, 1, 1) });
     page.drawText(info?.dateOfBirthYear || '', { x: 415, y: dobBoxY + 5, size: 10, font: helveticaBold });
     page.drawText('Year', { x: 430, y: dobBoxY - 8, size: 7, font: helveticaFont });
 
@@ -405,8 +539,8 @@ class PDFGenerator {
     page.drawText('8.   Marital Status (Tick x)', { x: labelX, y: yPos, size: 10, font: helveticaFont });
     const isSingle = info?.maritalStatus?.toLowerCase() === 'single';
     const isMarried = info?.maritalStatus?.toLowerCase() === 'married';
-    page.drawText(`Single ( ${isSingle ? 'X' : ' '} )`, { x: 250, y: yPos, size: 10, font: helveticaFont });
-    page.drawText(`Married ( ${isMarried ? 'X' : ' '} )`, { x: 400, y: yPos, size: 10, font: helveticaFont });
+    page.drawText(`Single(${isSingle ? 'X' : ' '})`, { x: 250, y: yPos, size: 10, font: helveticaFont });
+    page.drawText(`Married(${isMarried ? 'X' : ' '})`, { x: 400, y: yPos, size: 10, font: helveticaFont });
     yPos -= lineSpacing;
 
     // 9. State of Origin
@@ -446,6 +580,10 @@ class PDFGenerator {
     });
     yPos -= 30;
 
+    // Student Signature
+    if (data.student.signatureUrl) {
+      await drawSignature(data.student.signatureUrl, 320, yPos + 2, 120, 35);
+    }
     page.drawLine({ start: { x: 300, y: yPos }, end: { x: 550, y: yPos }, thickness: 1 });
     page.drawText('Signature of Prospective Corps Member & Date', { x: 310, y: yPos - 12, size: 8, font: helveticaOblique });
 
@@ -476,6 +614,10 @@ class PDFGenerator {
     page.drawText('I confirm that the results of the Student has been verified by Admission Office', { x: 50, y: yPos, size: 9, font: helveticaFont });
     yPos -= 30;
 
+    // Admission Officer Signature
+    if (data.admissionOfficerSignatureUrl) {
+      await drawSignature(data.admissionOfficerSignatureUrl, 320, yPos + 2, 120, 35);
+    }
     page.drawLine({ start: { x: 300, y: yPos }, end: { x: 550, y: yPos }, thickness: 1 });
     page.drawText('Name and Signature of Admission Officer', { x: 330, y: yPos - 12, size: 8, font: helveticaOblique });
 
@@ -485,7 +627,7 @@ class PDFGenerator {
     page.drawText('HEAD OF DEPARTMENT', { x: 50, y: yPos, size: 10, font: helveticaBold });
     yPos -= 15;
 
-    page.drawText(`I confirm that he/she is from the Department of ${info?.department || data.student.department || '_____________'} and his/her result was`, {
+    page.drawText(`I confirm that he / she is from the Department of ${info?.department || data.student.department || '_____________'} and his / her result was`, {
       x: 50, y: yPos, size: 9, font: helveticaFont
     });
     yPos -= 15;
@@ -496,6 +638,10 @@ class PDFGenerator {
     page.drawText('student.', { x: 50, y: yPos, size: 9, font: helveticaFont });
 
     yPos -= 25;
+    // HOD Signature
+    if (data.hodSignatureUrl) {
+      await drawSignature(data.hodSignatureUrl, 320, yPos + 2, 120, 35);
+    }
     page.drawLine({ start: { x: 300, y: yPos }, end: { x: 550, y: yPos }, thickness: 1 });
     page.drawText('Head of Department Signature and Date', { x: 335, y: yPos - 12, size: 8, font: helveticaOblique });
 
@@ -550,13 +696,29 @@ class PDFGenerator {
 
       if (!student) return null;
 
+      // Fetch profile picture and signature from the user record linked to this student
+      let profilePictureUrl: string | undefined;
+      let signatureUrl: string | undefined;
+      try {
+        const userRecord = await prisma.user.findUnique({
+          where: { id: student.userId },
+          select: { profilePictureUrl: true, signatureUrl: true }
+        });
+        profilePictureUrl = userRecord?.profilePictureUrl ?? undefined;
+        signatureUrl = userRecord?.signatureUrl ?? undefined;
+      } catch {
+        // Non-critical
+      }
+
       return {
         id: student.id,
-        name: `${student.firstName} ${student.lastName}`,
+        name: `${student.firstName} ${student.lastName} `,
         matricNumber: student.matricNumber,
         department: student.department?.name || 'N/A',
         faculty: student.faculty?.name || 'N/A',
         level: student.level || 'N/A',
+        profilePictureUrl,
+        signatureUrl,
       };
     } catch (error) {
       console.error('Error getting student data for PDF:', error);

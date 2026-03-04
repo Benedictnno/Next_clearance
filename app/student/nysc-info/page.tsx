@@ -41,6 +41,7 @@ export default function NYSCInfoPage() {
   });
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchExistingData();
@@ -71,6 +72,7 @@ export default function NYSCInfoPage() {
         const profileData = await profileRes.json();
         const student = profileData.data;
         if (student) {
+          setProfilePictureUrl(student.profilePictureUrl || null);
           setFormData(prev => ({
             ...prev,
             name: `${student.firstName} ${student.lastName}`,
@@ -124,9 +126,18 @@ export default function NYSCInfoPage() {
       <div className="bg-white shadow-sm border-b border-soft-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-h2 text-primary-500 font-semibold">NYSC Information</h1>
-              <p className="text-label text-dark-600 mt-1">Complete your NYSC deployment information</p>
+            <div className="flex items-center space-x-4">
+              {profilePictureUrl ? (
+                <img src={profilePictureUrl} alt="Profile" className="w-12 h-12 rounded-full object-cover border-2 border-primary-200" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 text-xl font-bold">
+                  {formData.name?.charAt(0) || '?'}
+                </div>
+              )}
+              <div>
+                <h1 className="text-h2 text-primary-500 font-semibold">NYSC Information</h1>
+                <p className="text-label text-dark-600 mt-1">Complete your NYSC deployment information</p>
+              </div>
             </div>
             <button
               onClick={() => router.push('/student/dashboard')}
