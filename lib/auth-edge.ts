@@ -169,9 +169,18 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
             } else {
                 const errorText = await coreResponse.text();
                 console.error(`[verifyTokenEdge] Core API fetch failed: ${coreResponse.status} - ${errorText}`);
+
+                // CRITICAL: If Core API says the token is invalid (401) or user not found (404),
+                // we MUST NOT fall back to the JWT payload. The session is revoked.
+                if ([401, 403, 404].includes(coreResponse.status)) {
+                    console.error(`[verifyTokenEdge] Session revoked by Core API (Status: ${coreResponse.status}). Invalidating local session.`);
+                    return null;
+                }
+
+                // For other errors (500, etc.), we can fallback to the JWT payload to maintain resilience
             }
         } catch (fetchError) {
-            console.error('[verifyTokenEdge] Failed to fetch fresh user data from Core API (using token payload as fallback):', fetchError);
+            console.error('[verifyTokenEdge] Network error fetching from Core API (using token payload as fallback):', fetchError);
         }
 
         return normalized;

@@ -121,13 +121,13 @@ export async function middleware(request: NextRequest) {
       response.cookies.set('userId', payload.userId, {
         httpOnly: false, // Allow client-side access
         secure: isSecure,
-        sameSite: 'lax',
+        sameSite: 'lax' as const,
         maxAge: 60 * 60 * 24 * 7,
         path: '/',
       });
     }
 
-    console.log('[Middleware] Cookie set, redirecting to:', redirectUrl);
+    console.log(`[Middleware] Auth success: ${payload.email} (${payload.role}), storage set, redirecting to: ${redirectUrl}`);
     return response;
   }
 
@@ -213,6 +213,8 @@ export async function middleware(request: NextRequest) {
         : NextResponse.redirect(new URL('/', request.url));
 
       response.cookies.delete('auth_token');
+      response.cookies.delete('token');
+      response.cookies.delete('userId');
       return response;
     }
 

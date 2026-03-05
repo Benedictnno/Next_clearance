@@ -122,11 +122,18 @@ export async function getCurrentUser() {
   const payload = await verifyToken(token);
   if (!payload) return null;
 
-  // Fetch fresh user data from Core API
-  console.log(`[getCurrentUser] Attempting to fetch fresh data for token starting with: ${token.substring(0, 10)}...`);
+  // Fetch fresh user data from Core EKSU
+  console.log(`[getCurrentUser] Refreshing data from Core API for token starting ${token.substring(0, 8)}...`);
   const coreUser = await fetchUserFromCoreEKSU(token);
+
+  // If fetchUserFromCoreEKSU failed, we should check why.
+  // Note: fetchUserFromCoreEKSU in user-storage.ts currently returns null on any error.
+  // We want to be careful here - if it's a 401, we should probably invalid session,
+  // but if it's just a network timeout, we might want to allow fallback.
+  // Currently fetchUserFromCoreEKSU logs the status.
+
   if (coreUser) {
-    console.log('Fetched fresh data from Core API:', coreUser.email);
+    console.log('[getCurrentUser] Data refreshed for:', coreUser.email);
     // Merge core data into payload (prioritize core data)
     payload.email = coreUser.email || payload.email;
     payload.name = coreUser.name || payload.name;
@@ -170,9 +177,15 @@ export async function getCurrentUser() {
     if (coreUser.id || coreUser._id) {
       payload.userId = String(coreUser.id || coreUser._id);
     }
+  } else {
+    // If we couldn't fetch fresh data, we're in a risky state.
+    // However, in non-edge environments (Server Components), we often want to allow
+    // the page to render even if the Core API is momentarily slow, as long as the JWT is valid.
+    // We already verified the JWT above.
+    console.warn('[getCurrentUser] Fresh data fetch failed, using JWT payload as fallback.');
   }
 
-  console.log('Final effective payload:', payload);
+  console.log('[getCurrentUser] Final payload:', { email: payload.email, role: payload.role });
 
   // Try matching either by primary id or externalId since tokens may carry either
   const lookupUserId = String(payload.userId ?? '');
