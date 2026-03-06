@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
   // STEP 1: Handle new reference-based auth flow (from CoreEKSU redirect)
   // ============================================
   const referenceFromUrl = searchParams.get('ref');
-  const isAuthCallback = pathname.startsWith('/api/auth/callback');
+  const isAuthCallback = pathname.startsWith('/api/auth/callback') || pathname === '/auth/bridge';
 
   if (referenceFromUrl && !isAuthCallback) {
     console.log('[Middleware] Detected reference-based auth, redirecting to bridge handler...');
