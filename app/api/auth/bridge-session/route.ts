@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
         if (!token || !userDataStr) {
             console.error('[Bridge Session] Missing token or user data');
-            return NextResponse.redirect(new URL('/?error=invalid_bridge_data', request.url));
+            return NextResponse.redirect(new URL('/?error=invalid_bridge_data', request.url), 303);
         }
 
         // Parse the user data
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
             userData = JSON.parse(userDataStr);
         } catch (e) {
             console.error('[Bridge Session] Failed to parse user data:', e);
-            return NextResponse.redirect(new URL('/?error=invalid_user_data', request.url));
+            return NextResponse.redirect(new URL('/?error=invalid_user_data', request.url), 303);
         }
 
         // Establish the cookies using lib/auth
@@ -45,9 +45,7 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Bridge Session] Setting cookies and redirecting to: ${redirectUrl}`);
 
-        const responseRedirect = NextResponse.redirect(new URL(redirectUrl, request.url), {
-            status: 302
-        });
+        const responseRedirect = NextResponse.redirect(new URL(redirectUrl, request.url), 303);
 
         // Use the auth cookie helper if possible, or manual cookies here
         const cookieOptions = {
@@ -77,6 +75,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error('[Bridge Session] Error establishing session:', error);
-        return NextResponse.redirect(new URL('/?error=session_error', request.url));
+        return NextResponse.redirect(new URL('/?error=session_error', request.url), 303);
     }
 }
