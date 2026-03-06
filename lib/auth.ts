@@ -368,8 +368,12 @@ export async function getCurrentUser() {
           });
         }
       }
+    } catch (syncError) {
+      console.error('Error in JIT role sync:', syncError);
+    }
 
-      // Re-fetch to ensure user object is complete
+    // ALWAYS re-fetch to ensure user object is complete (even if JIT sync raced)
+    try {
       user = await prisma.user.findUnique({
         where: { id: user.id },
         include: {
@@ -378,8 +382,8 @@ export async function getCurrentUser() {
           admin: true,
         }
       });
-    } catch (syncError) {
-      console.error('Error in JIT role sync:', syncError);
+    } catch (err) {
+      console.error('Error re-fetching user after JIT sync:', err);
     }
   }
 
@@ -694,8 +698,12 @@ export async function getCurrentUser() {
           yearsSinceAdmission: payload.yearsSinceAdmission,
         },
       });
+    } catch (err) {
+      console.error('Error creating missing student record:', err);
+    }
 
-      // Re-fetch with relations
+    // ALWAYS re-fetch with relations (even if JIT sync raced)
+    try {
       user = await prisma.user.findUnique({
         where: { id: user.id },
         include: {
@@ -710,7 +718,7 @@ export async function getCurrentUser() {
         },
       });
     } catch (err) {
-      console.error('Error creating missing student record:', err);
+      console.error('Error re-fetching user after student JIT sync:', err);
     }
   }
 
