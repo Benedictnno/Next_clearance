@@ -27,7 +27,7 @@ export default function OfficerDashboard() {
 
   const fetchGlobalSubmissions = useCallback(async () => {
     try {
-      const res = await fetch('/api/officer/clearance-workflow/global');
+      const res = await fetch('/api/officer/clearance-workflow/global', { credentials: 'include' });
       const data = await res.json();
       if (data.success) {
         setSubmissions(data.data || []);
@@ -42,7 +42,7 @@ export default function OfficerDashboard() {
 
   const fetchOfficerInfo = useCallback(async () => {
     try {
-      const res = await fetch('/api/officer/me');
+      const res = await fetch('/api/officer/me', { credentials: 'include' });
       const data = await res.json();
       if (data.success) {
         setOfficerName(data.data.name);
@@ -116,7 +116,7 @@ export default function OfficerDashboard() {
                 >
                   Go to My Active Workflow →
                 </button>
-              )} 
+              )}
               <button
                 onClick={() => logout()}
                 className="bg-white border-2 border-slate-200 text-slate-600 px-6 py-3 rounded-lg hover:bg-slate-50 transition font-semibold shadow-md flex items-center justify-center"

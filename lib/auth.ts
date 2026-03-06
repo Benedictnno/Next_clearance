@@ -322,7 +322,7 @@ export async function getCurrentUser() {
             'AUDIT': ['internal_audit'],
             'SECURITY': ['security_office'],
           };
-          assignedOffices = roleToOffice[payload.officeRole.toUpperCase()] || [];
+          assignedOffices = (payload.officeRole && roleToOffice[payload.officeRole.toUpperCase()]) || [];
         }
 
         // Find or create faculty if provided

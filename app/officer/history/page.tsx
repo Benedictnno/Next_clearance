@@ -77,7 +77,7 @@ export default function OfficerHistoryPage() {
 
   async function fetchHistory() {
     try {
-      const res = await fetch('/api/officer/history');
+      const res = await fetch('/api/officer/history', { credentials: 'include' });
       const data = await res.json();
       setActivities(data.data || []);
       setFilteredActivities(data.data || []);
@@ -235,8 +235,8 @@ export default function OfficerHistoryPage() {
                     <div className="flex-shrink-0">
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center ${activity.status === 'APPROVED'
-                            ? 'bg-green-100 border-2 border-green-500'
-                            : 'bg-accent-100 border-2 border-accent-500'
+                          ? 'bg-green-100 border-2 border-green-500'
+                          : 'bg-accent-100 border-2 border-accent-500'
                           }`}
                       >
                         <span className="text-2xl">
@@ -251,8 +251,8 @@ export default function OfficerHistoryPage() {
                         <div>
                           <span
                             className={`px-3 py-1 rounded-full font-medium text-label ${activity.status === 'APPROVED'
-                                ? 'badge-approved'
-                                : 'badge-rejected'
+                              ? 'badge-approved'
+                              : 'badge-rejected'
                               }`}
                           >
                             {activity.status}

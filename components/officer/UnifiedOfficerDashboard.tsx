@@ -58,7 +58,7 @@ export default function UnifiedOfficerDashboard() {
     useEffect(() => {
         async function fetchOfficerInfo() {
             try {
-                const res = await fetch('/api/officer/me');
+                const res = await fetch('/api/officer/me', { credentials: 'include' });
                 const data = await res.json();
                 if (data.success) {
                     setOfficerInfo(data.data);
@@ -88,7 +88,7 @@ export default function UnifiedOfficerDashboard() {
                     ? `/api/officer/clearance-workflow/pending?officeId=${selectedOffice}`
                     : `/api/officer/clearance-workflow/all?officeId=${selectedOffice}`;
 
-            const res = await fetch(endpoint);
+            const res = await fetch(endpoint, { credentials: 'include' });
             const data = await res.json();
             setSubmissions(data.data || []);
         } catch (error) {
@@ -101,7 +101,8 @@ export default function UnifiedOfficerDashboard() {
     const fetchStatistics = useCallback(async () => {
         try {
             const res = await fetch(
-                `/api/officer/clearance-workflow/statistics?officeId=${selectedOffice}`
+                `/api/officer/clearance-workflow/statistics?officeId=${selectedOffice}`,
+                { credentials: 'include' }
             );
             const data = await res.json();
             if (data.success) {
@@ -141,6 +142,7 @@ export default function UnifiedOfficerDashboard() {
                     submissionId: selectedSubmission.id,
                     [action === 'approve' ? 'comment' : 'reason']: comment,
                 }),
+                credentials: 'include'
             });
 
             const data = await res.json();

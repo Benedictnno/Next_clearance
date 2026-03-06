@@ -38,7 +38,7 @@ export default function OversightDashboard() {
 
     const fetchData = useCallback(async () => {
         try {
-            const res = await fetch('/api/officer/clearance-workflow/oversight');
+            const res = await fetch('/api/officer/clearance-workflow/oversight', { credentials: 'include' });
             const data = await res.json();
             if (data.success) {
                 setRequests(data.data || []);
@@ -52,7 +52,7 @@ export default function OversightDashboard() {
 
     const fetchOfficerInfo = useCallback(async () => {
         try {
-            const res = await fetch('/api/officer/me');
+            const res = await fetch('/api/officer/me', { credentials: 'include' });
             const data = await res.json();
             if (data.success) {
                 setOfficerName(data.data.name);
@@ -114,7 +114,7 @@ export default function OversightDashboard() {
 
     const handleDownload = async (request: ClearanceRequest) => {
         try {
-            const res = await fetch(`/api/officer/clearance-workflow/download-certificate?studentId=${request.studentId}`);
+            const res = await fetch(`/api/officer/clearance-workflow/download-certificate?studentId=${request.studentId}`, { credentials: 'include' });
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -136,7 +136,7 @@ export default function OversightDashboard() {
 
     const handleDownloadNYSC = async (request: ClearanceRequest) => {
         try {
-            const res = await fetch(`/api/officer/clearance-workflow/download-nysc?studentId=${request.studentId}`);
+            const res = await fetch(`/api/officer/clearance-workflow/download-nysc?studentId=${request.studentId}`, { credentials: 'include' });
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -167,7 +167,8 @@ export default function OversightDashboard() {
                 body: JSON.stringify({
                     submissionId: request.studentAffairsSubmissionId,
                     comment: 'Verified and approved by Student Affairs'
-                })
+                }),
+                credentials: 'include'
             });
 
             if (res.ok) {
@@ -195,7 +196,8 @@ export default function OversightDashboard() {
                 body: JSON.stringify({
                     submissionId: request.studentAffairsSubmissionId,
                     reason: reason
-                })
+                }),
+                credentials: 'include'
             });
 
             if (res.ok) {
