@@ -63,18 +63,18 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
 
         // Check for required fields
         const raw = payload as Record<string, unknown>;
-        if (!raw.email || !raw.role || (!raw._id && !raw.userId)) {
+        if (!raw.email || !raw.role || (!raw._id && !raw.userId && !raw.id)) {
             console.error('[verifyTokenEdge] Token missing required fields:', {
                 hasEmail: !!raw.email,
                 hasRole: !!raw.role,
-                hasId: !!(raw._id || raw.userId),
+                hasId: !!(raw._id || raw.userId || raw.id),
             });
             return null;
         }
 
         // Normalize payload to our expected structure
         const normalized: MiddlewareJWTPayload = {
-            userId: String(raw._id || raw.userId),
+            userId: String(raw._id || raw.userId || raw.id),
             email: String(raw.email),
             role: (function () {
                 const r = String(raw.role || '').toUpperCase();

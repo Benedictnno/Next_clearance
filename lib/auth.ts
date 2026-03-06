@@ -46,20 +46,21 @@ export async function verifyToken(token: string) {
   try {
     const { payload } = await jwtVerify(token, SECRET_KEY);
 
-    // Check for required fields
+    // Check for required fields — CoreEKSU may use `id`, `_id`, or `userId`
     const raw = payload as any;
-    if (!raw.email || !raw.role || (!raw._id && !raw.userId)) {
-      console.error('Token missing required fields:', {
+    if (!raw.email || !raw.role || (!raw._id && !raw.userId && !raw.id)) {
+      console.error('[verifyToken] Token missing required fields:', {
         hasEmail: !!raw.email,
         hasRole: !!raw.role,
-        hasId: !!(raw._id || raw.userId)
+        hasId: !!(raw._id || raw.userId || raw.id),
+        rawKeys: Object.keys(raw)
       });
       return null;
     }
 
     // Normalize payload to our expected structure
     const normalized: JWTPayload = {
-      userId: raw._id || raw.userId,
+      userId: raw._id || raw.userId || raw.id,
       email: raw.email,
       role: (function () {
         const r = String(raw.role || '').toUpperCase();
@@ -117,13 +118,20 @@ export async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('token')?.value;
 
-  if (!token) return null;
+  if (!token) {
+    console.log('[getCurrentUser] No auth token cookie found');
+    return null;
+  }
 
   const payload = await verifyToken(token);
-  if (!payload) return null;
+  if (!payload) {
+    console.error('[getCurrentUser] verifyToken returned null — JWT is invalid or missing required fields');
+    return null;
+  }
+
+  console.log(`[getCurrentUser] Token verified. role=${payload.role}, userId=${payload.userId}, email=${payload.email}`);
 
   // Fetch fresh user data from Core EKSU
-  console.log(`[getCurrentUser] Refreshing data from Core API for token starting ${token.substring(0, 8)}...`);
   const coreUser = await fetchUserFromCoreEKSU(token);
 
   // If fetchUserFromCoreEKSU failed, we should check why.
@@ -185,11 +193,16 @@ export async function getCurrentUser() {
     console.warn('[getCurrentUser] Fresh data fetch failed, using JWT payload as fallback.');
   }
 
-  console.log('[getCurrentUser] Final payload:', { email: payload.email, role: payload.role });
+  console.log('[getCurrentUser] Final payload after Core merge:', {
+    email: payload.email,
+    role: payload.role,
+    officeRole: payload.officeRole,
+    userId: payload.userId
+  });
 
   // Try matching either by primary id or externalId since tokens may carry either
   const lookupUserId = String(payload.userId ?? '');
-  console.log('Looking up user with ID:', lookupUserId);
+  console.log('[getCurrentUser] Looking up user in DB with ID:', lookupUserId);
 
   // First try to find existing user by ID or externalId or email
   let user: any = null;
@@ -223,9 +236,16 @@ export async function getCurrentUser() {
       },
     });
   } catch (dbError) {
-    console.error('Prisma error in getCurrentUser:', dbError);
+    console.error('[getCurrentUser] Prisma DB lookup error:', dbError);
     user = null;
   }
+
+  console.log('[getCurrentUser] DB lookup result:', {
+    found: !!user,
+    dbRole: user?.role,
+    hasOfficer: !!user?.officer,
+    hasStudent: !!user?.student
+  });
 
   // JIT Sync: Sync profile details if they changed
   if (user && (
@@ -537,17 +557,24 @@ export async function getCurrentUser() {
         } else if (payload.officeRole) {
           // Infer from officeRole if assignedOffices not provided
           const roleToOffice: Record<string, string[]> = {
-            'HOD': ['hod'],
-            'LIBRARY': ['library'],
-            'BURSAR': ['bursar'],
-            'SPORTS': ['sports'],
-            'CLINIC': ['clinic'],
-            'DEAN': ['dean'],
-            'REGISTRAR': ['registrar'],
+            'HOD': ['department_hod'],
+            'FACULTY_OFFICER': ['faculty_officer'],
+            'ADVANCEMENT_LINKAGES': ['advancement_linkages'],
+            'DEAN': ['faculty_officer'],
+            'BURSAR': ['bursary'],
+            'LIBRARIAN': ['university_librarian'],
+            'LIBRARY': ['university_librarian'],
             'OVERSEER': ['student_affairs'],
             'STUDENT_AFFAIRS': ['student_affairs'],
+            'REGISTRAR': ['exams_transcript'],
+            'EXAMS_TRANSCRIPT': ['exams_transcript'],
+            'SPORTS': ['sports_council'],
+            'CLINIC': ['sports_council'],
+            'ALUMNI': ['alumni_association'],
+            'AUDIT': ['internal_audit'],
+            'SECURITY': ['security_office'],
           };
-          assignedOffices = roleToOffice[payload.officeRole.toUpperCase()] || [];
+          assignedOffices = (payload.officeRole && roleToOffice[payload.officeRole.toUpperCase()]) || [];
         }
 
         // Find or create faculty if provided
@@ -958,11 +985,15 @@ function createVirtualUser(payload: JWTPayload) {
         id: payload.userId,
         userId: payload.userId,
         name: payload.name,
+        role: payload.officeRole || 'Officer',
         phoneNumber: payload.phoneNumber || '',
         departmentId: '',
         user: { email: payload.email },
         department: payload.department ? { name: payload.department } : null,
         assignedSteps: [],
+        assignedOffices: payload.assignedOffices || [],
+        assignedOfficeId: payload.assignedOffices?.[0] || null,
+        assignedOfficeName: payload.officeRole || 'Officer',
       },
       admin: null,
     } as any;

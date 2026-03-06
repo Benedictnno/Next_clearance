@@ -44,11 +44,11 @@ export async function middleware(request: NextRequest) {
   const isAuthCallback = pathname.startsWith('/api/auth/callback');
 
   if (referenceFromUrl && !isAuthCallback) {
-    console.log('[Middleware] Detected reference-based auth, redirecting to callback handler...');
+    console.log('[Middleware] Detected reference-based auth, redirecting to bridge handler...');
 
-    // Redirect to the auth callback route which will handle verification
+    // Redirect to the auth bridge page which will handle verification client-side
     // Preserve any returnUrl parameter
-    const callbackUrl = new URL('/api/auth/callback', request.url);
+    const callbackUrl = new URL('/auth/bridge', request.url);
     callbackUrl.searchParams.set('ref', referenceFromUrl);
 
     const returnUrl = searchParams.get('returnUrl');
