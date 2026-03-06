@@ -1,10 +1,19 @@
 /**
  * Middleware-safe authentication utilities
- * 
+ *
  * This module provides JWT verification that works in Edge Runtime (middleware).
  * It does NOT import Prisma, which is not compatible with Edge Runtime.
- * 
+ *
  * For full user data with database lookups, use lib/auth.ts instead.
+ *
+ * IMPORTANT: This function only verifies the JWT signature locally.
+ * It does NOT call the Core API, because:
+ * 1. Middleware runs on every request — external API calls add significant latency.
+ * 2. If the Core API is down, ALL users would be locked out.
+ * 3. The Core API rejects server-to-server calls with a 401, which would
+ *    invalidate perfectly valid sessions.
+ * Fresh data enrichment is done in getCurrentUser() in lib/auth.ts, which has
+ * proper fallback logic and only runs for actual page/API handler requests.
  */
 
 import { jwtVerify } from 'jose';
@@ -40,11 +49,11 @@ export interface MiddlewareJWTPayload {
 }
 
 /**
- * Verify JWT token in Edge Runtime (middleware-safe)
- * 
- * This function uses the 'jose' library which is Edge-compatible.
- * It does NOT perform any database lookups.
- * 
+ * Verify JWT token in Edge Runtime (middleware-safe).
+ *
+ * ONLY verifies the JWT signature using the local secret.
+ * Does NOT call the Core API. See module comments above.
+ *
  * @param token - JWT token string
  * @returns Normalized payload or null if invalid
  */
@@ -58,7 +67,7 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
             console.error('[verifyTokenEdge] Token missing required fields:', {
                 hasEmail: !!raw.email,
                 hasRole: !!raw.role,
-                hasId: !!(raw._id || raw.userId)
+                hasId: !!(raw._id || raw.userId),
             });
             return null;
         }
@@ -81,7 +90,7 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
             gender: raw.gender ? String(raw.gender) : undefined,
             admissionYear: typeof raw.admissionYear === 'number' ? raw.admissionYear : undefined,
             yearsSinceAdmission: typeof raw.yearsSinceAdmission === 'number' ? raw.yearsSinceAdmission : undefined,
-            // Officer fields - handle 'position' fallback from Core platform
+            // Officer fields — handle 'position' fallback from Core platform
             officeRole: (function () {
                 if (raw.officeRole) return String(raw.officeRole);
                 if (raw.position) {
@@ -105,91 +114,21 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
                 if (String(raw.email).toLowerCase().includes('student_affair')) return 'OVERSEER';
                 return undefined;
             })(),
-            assignedOffices: Array.isArray(raw.assignedOffices) ? raw.assignedOffices : undefined,
+            assignedOffices: Array.isArray(raw.assignedOffices) ? (raw.assignedOffices as string[]) : undefined,
             assignedDepartmentId: raw.assignedDepartmentId ? String(raw.assignedDepartmentId) : undefined,
             assignedDepartmentName: raw.assignedDepartmentName ? String(raw.assignedDepartmentName) : undefined,
             faculty: raw.faculty ? String(raw.faculty) : undefined,
         };
 
-        // AUTHORITATIVE CHECK: Fetch fresh data from Core API if possible
-        try {
-            const coreApiUrl = process.env.CORE_API_URL || 'https://coreeksu.vercel.app';
-            const coreResponse = await fetch(`${coreApiUrl}/api/users/me`, {
-                headers: {
-                    'Cookie': `token=${token}`,
-                    'Authorization': `Bearer ${token}`
-                },
-                // Edge runtime compatible options
-                cache: 'no-store'
-            });
-
-            if (coreResponse.ok) {
-                const coreData = await coreResponse.json();
-                const coreUser = coreData.user || coreData;
-
-                if (coreUser) {
-                    console.log('[verifyTokenEdge] Merging fresh data from Core API for:', coreUser.email);
-                    normalized.userId = String(coreUser.id || coreUser._id || normalized.userId);
-                    normalized.email = coreUser.email || normalized.email;
-
-                    if (coreUser.role) {
-                        normalized.role = (function () {
-                            const r = String(coreUser.role).toUpperCase();
-                            if (['STAFF', 'OFFICIAL', 'OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'].includes(r)) return 'OFFICER';
-                            if (r === 'GENERAL') return 'STUDENT';
-                            return r;
-                        })();
-                    }
-
-                    // Derive officeRole from position if present in core data
-                    if (coreUser.position) {
-                        const pos = String(coreUser.position).toUpperCase();
-                        if (pos.includes('HOD') || pos.includes('HEAD OF DEPARTMENT')) normalized.officeRole = 'HOD';
-                        else if (pos.includes('FACULTY OFFICER')) normalized.officeRole = 'FACULTY_OFFICER';
-                        else if (pos.includes('ADVANCEMENT') || pos.includes('LINKAGES')) normalized.officeRole = 'ADVANCEMENT_LINKAGES';
-                        else if (pos.includes('DEAN')) normalized.officeRole = 'DEAN';
-                        else if (pos.includes('BURSAR')) normalized.officeRole = 'BURSAR';
-                        else if (pos.includes('LIBRARIAN') || pos.includes('LIBRARY')) normalized.officeRole = 'LIBRARY';
-                        else if (pos.includes('REGISTRAR') || pos.includes('EXAMS')) normalized.officeRole = 'EXAMS_TRANSCRIPT';
-                        else if (pos.includes('SPORTS')) normalized.officeRole = 'SPORTS';
-                        else if (pos.includes('CLINIC') || pos.includes('MEDICAL')) normalized.officeRole = 'CLINIC';
-                        else if (pos.includes('ALUMNI')) normalized.officeRole = 'ALUMNI';
-                        else if (pos.includes('AUDIT')) normalized.officeRole = 'AUDIT';
-                        else if (pos.includes('SECURITY')) normalized.officeRole = 'SECURITY';
-                        else if (pos.includes('STUDENT AFFAIRS')) normalized.officeRole = 'OVERSEER';
-                        else normalized.officeRole = pos;
-                    }
-
-                    normalized.profilePictureUrl = coreUser.profilePictureUrl || normalized.profilePictureUrl;
-                    normalized.name = coreUser.name || normalized.name;
-                    normalized.matricNumber = coreUser.matricNumber || normalized.matricNumber;
-                    normalized.department = coreUser.department || normalized.department;
-                    normalized.faculty = coreUser.faculty || normalized.faculty;
-                }
-            } else {
-                const errorText = await coreResponse.text();
-                console.error(`[verifyTokenEdge] Core API fetch failed: ${coreResponse.status} - ${errorText}`);
-
-                // CRITICAL: If Core API says the token is invalid (401) or user not found (404),
-                // we MUST NOT fall back to the JWT payload. The session is revoked.
-                if ([401, 403, 404].includes(coreResponse.status)) {
-                    console.error(`[verifyTokenEdge] Session revoked by Core API (Status: ${coreResponse.status}). Invalidating local session.`);
-                    return null;
-                }
-
-                // For other errors (500, etc.), we can fallback to the JWT payload to maintain resilience
-            }
-        } catch (fetchError) {
-            console.error('[verifyTokenEdge] Network error fetching from Core API (using token payload as fallback):', fetchError);
-        }
-
         return normalized;
     } catch (error) {
-        const secretPreview = JWT_SECRET ? `${JWT_SECRET.substring(0, 4)}... (len: ${JWT_SECRET.length})` : 'MISSING';
+        const secretPreview = JWT_SECRET
+            ? `${JWT_SECRET.substring(0, 4)}... (len: ${JWT_SECRET.length})`
+            : 'MISSING';
         console.error('[verifyTokenEdge] Token verification failed:', {
             error: error instanceof Error ? error.message : error,
             code: (error as any).code,
-            secretPreview: secretPreview
+            secretPreview,
         });
         return null;
     }
