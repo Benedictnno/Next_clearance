@@ -71,6 +71,8 @@ export interface StudentClearanceStatus {
     submittedAt?: Date;
     reviewedAt?: Date;
     comment?: string;
+    signatureUrl?: string | null;
+    officerName?: string | null;
     canSubmit: boolean;
   }>;
   overallProgress: number; // Percentage
@@ -434,7 +436,19 @@ class ClearanceWorkflowService {
         where: { studentId },
         include: {
           steps: {
-            include: { documents: true }
+            include: {
+              documents: true,
+              officer: {
+                include: {
+                  user: {
+                    select: {
+                      signatureUrl: true,
+                      name: true
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       });
@@ -467,7 +481,9 @@ class ClearanceWorkflowService {
           submittedAt: submission?.createdAt,
           reviewedAt: submission?.actionedAt || undefined,
           comment: submission?.comment || undefined,
-          canSubmit
+          canSubmit,
+          signatureUrl: submission?.officer?.user?.signatureUrl || null,
+          officerName: submission?.officer?.name || submission?.officer?.user?.name || null
         };
       });
 

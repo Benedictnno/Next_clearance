@@ -10,6 +10,8 @@ interface OfficeStatus {
     status: 'not_started' | 'pending' | 'approved' | 'rejected';
     submittedAt?: string;
     reviewedAt?: string;
+    signatureUrl?: string;
+    officerName?: string;
     comment?: string;
 }
 
@@ -239,9 +241,18 @@ export default function SlipPage() {
                                             CLEARED - {o.stepNumber.toString().padStart(2, '0')}/{new Date().getFullYear()}
                                         </div>
                                     )}
-                                    <div className="text-[10px]">
                                         Date: {isCleared ? formatDate(o.reviewedAt) : '_______________'}
                                     </div>
+                                    {isCleared && o.signatureUrl && (
+                                        <div className="mt-2 h-10 relative">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={o.signatureUrl}
+                                                alt={`${o.officerName || 'Officer'} Signature`}
+                                                className="h-full object-contain"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -301,7 +312,7 @@ export default function SlipPage() {
                 /* Make checkboxes perfectly square */
                 .w-4.h-4 { width: 12px; height: 12px; }
             `}</style>
-        </div>
+        </div >
     )
 }
 
