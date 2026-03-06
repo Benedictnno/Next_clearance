@@ -241,8 +241,7 @@ export default function SlipPage() {
                                             CLEARED - {o.stepNumber.toString().padStart(2, '0')}/{new Date().getFullYear()}
                                         </div>
                                     )}
-                                        Date: {isCleared ? formatDate(o.reviewedAt) : '_______________'}
-                                    </div>
+                                    Date: {isCleared ? formatDate(o.reviewedAt) : '_______________'}
                                     {isCleared && o.signatureUrl && (
                                         <div className="mt-2 h-10 relative">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
