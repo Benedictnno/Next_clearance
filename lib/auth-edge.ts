@@ -79,6 +79,10 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
             role: (function () {
                 const r = String(raw.role || '').toUpperCase();
                 if (['STAFF', 'OFFICIAL', 'OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'].includes(r)) return 'OFFICER';
+
+                const officeRoles = ['HOD', 'FACULTY_OFFICER', 'ADVANCEMENT_LINKAGES', 'DEAN', 'BURSAR', 'LIBRARIAN', 'LIBRARY', 'REGISTRAR', 'EXAMS_TRANSCRIPT', 'SPORTS', 'CLINIC', 'ALUMNI', 'AUDIT', 'SECURITY'];
+                if (officeRoles.includes(r)) return 'OFFICER';
+
                 if (r === 'GENERAL') return 'STUDENT';
                 return r;
             })(),
@@ -109,6 +113,12 @@ export async function verifyTokenEdge(token: string): Promise<MiddlewareJWTPaylo
                     if (pos.includes('AUDIT')) return 'AUDIT';
                     if (pos.includes('SECURITY')) return 'SECURITY';
                     return pos;
+                }
+                const r = String(raw.role || '').toUpperCase();
+                const officeRoles = ['HOD', 'FACULTY_OFFICER', 'ADVANCEMENT_LINKAGES', 'DEAN', 'BURSAR', 'LIBRARIAN', 'LIBRARY', 'REGISTRAR', 'EXAMS_TRANSCRIPT', 'SPORTS', 'CLINIC', 'ALUMNI', 'AUDIT', 'SECURITY'];
+                if (officeRoles.includes(r)) {
+                    if (r === 'LIBRARIAN') return 'LIBRARY';
+                    return r;
                 }
                 // Fallback for Student Affairs specifically if identity provider is sparse
                 if (String(raw.email).toLowerCase().includes('student_affair')) return 'OVERSEER';
