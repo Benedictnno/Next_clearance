@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setAuthCookie } from '@/lib/auth';
+import { createSession, stripLargeBase64 } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
+        // token is the original Core EKSU token (potentially very large)
         const token = formData.get('token') as string;
         const userDataStr = formData.get('userData') as string;
         const returnUrl = formData.get('returnUrl') as string;
@@ -43,7 +44,14 @@ export async function POST(request: NextRequest) {
             redirectUrl = returnUrl;
         }
 
-        console.log(`[Bridge Session] Setting cookies and redirecting to: ${redirectUrl}`);
+        console.log(`[Bridge Session] Establishing session and redirecting to: ${redirectUrl}`);
+
+        // Create a NEW, smaller session token using our local secret
+        // instead of using the huge Core EKSU token directly as a cookie.
+        // cookies() in createSession only works in Server Actions/Components, 
+        // but we can manually set the resulting token on our response object.
+        const sessionResult = await createSession(userData);
+        const sessionToken = sessionResult.success ? sessionResult.token : token;
 
         const responseRedirect = NextResponse.redirect(new URL(redirectUrl, request.url), 303);
 
@@ -56,9 +64,10 @@ export async function POST(request: NextRequest) {
             path: '/',
         };
 
-        responseRedirect.cookies.set('auth_token', token, cookieOptions);
+        // Set the session token (which is now stripped of large base64 strings)
+        responseRedirect.cookies.set('auth_token', sessionToken as string, cookieOptions);
         // Set legacy fallback token
-        responseRedirect.cookies.set('token', token, cookieOptions);
+        responseRedirect.cookies.set('token', sessionToken as string, cookieOptions);
 
         if (userData.userId || userData._id) {
             const userId = userData.userId || userData._id;

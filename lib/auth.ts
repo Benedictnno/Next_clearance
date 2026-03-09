@@ -13,6 +13,27 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const SECRET_KEY = new TextEncoder().encode(JWT_SECRET);
 
 /**
+ * Utility to strip large base64 strings (like profile pictures/signatures) 
+ * from JWT payloads to prevent header/cookie size issues (413 Payload Too Large).
+ */
+export function stripLargeBase64<T>(obj: T): T {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  const result = { ...obj } as any;
+  const keysToStrip = ['profilePictureUrl', 'signatureUrl', 'profilePicture', 'signature'];
+  
+  for (const key of keysToStrip) {
+    if (result[key] && typeof result[key] === 'string' && result[key].startsWith('data:')) {
+      // If it's a data URL, it's likely a large base64 string
+      console.log(`[Auth] Stripping large base64 field: ${key}`);
+      delete result[key];
+    }
+  }
+  
+  return result;
+}
+
+/**
  * Updated to support new user data structure
  * Includes all fields from the requested payload for both students and officers
  */
@@ -59,7 +80,7 @@ export async function verifyToken(token: string) {
     }
 
     // Normalize payload to our expected structure
-    const normalized: JWTPayload = {
+    let normalized: JWTPayload = {
       userId: raw._id || raw.userId || raw.id,
       email: raw.email,
       role: (function () {
@@ -116,6 +137,9 @@ export async function verifyToken(token: string) {
       assignedDepartmentName: raw.assignedDepartmentName ? String(raw.assignedDepartmentName) : undefined,
       faculty: raw.faculty ? String(raw.faculty) : undefined,
     };
+
+    // Strip large base64 strings if present in external token
+    normalized = stripLargeBase64(normalized);
 
     return normalized;
   } catch (error) {
@@ -1061,7 +1085,7 @@ export async function createSession(userData: {
   yearsSinceAdmission?: number;
 }) {
   try {
-    const payload: JWTPayload = {
+    let payload: JWTPayload = {
       userId: userData._id,
       email: userData.email,
       role: userData.role.toUpperCase(),
@@ -1074,6 +1098,10 @@ export async function createSession(userData: {
       admissionYear: userData.admissionYear,
       yearsSinceAdmission: userData.yearsSinceAdmission
     };
+
+    // Optimization: Strip large base64 strings from JWT payload
+    // to prevent cookie size issues (4KB limit) and header issues.
+    payload = stripLargeBase64(payload);
 
     // Create JWT token
     const token = jwt.sign(payload, JWT_SECRET, {

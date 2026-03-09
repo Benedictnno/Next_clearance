@@ -59,6 +59,18 @@ function AuthBridgeContent() {
                 // Convert: JSON.parse() converts that string into a functional JSON object
                 const userData = JSON.parse(decodedJsonStr);
 
+                // Optimization: Strip large base64 strings from userData before bridging
+                // These are often too large for POST payloads and headers (413 Payload Too Large)
+                // We will fetch fresh data on the server anyway.
+                if (userData.profilePictureUrl && userData.profilePictureUrl.startsWith('data:')) {
+                    console.log('[Auth Bridge] Stripping large profilePictureUrl from userData');
+                    delete userData.profilePictureUrl;
+                }
+                if (userData.signatureUrl && userData.signatureUrl.startsWith('data:')) {
+                    console.log('[Auth Bridge] Stripping large signatureUrl from userData');
+                    delete userData.signatureUrl;
+                }
+
                 // Ensure userId is mapped to _id field if it doesn't exist
                 if (userData.userId && !userData._id) {
                     userData._id = userData.userId;
