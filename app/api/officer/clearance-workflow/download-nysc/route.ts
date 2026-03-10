@@ -8,8 +8,15 @@ export async function GET(request: NextRequest) {
         const user = await getCurrentUser();
 
         // Auth check: Only Oversight/Admin/Student Affairs roles
-        const isAuthorized = ['OVERSEER', 'STUDENT_AFFAIRS', 'ADMIN', 'SUPER_ADMIN'].includes(user?.role || '');
+        // We check both the base user role and the officer-specific role
+        const userRole = user?.role || '';
+        const officerRole = user?.officer?.role || '';
+        const isAuthorized = 
+            ['OVERSEER', 'STUDENT_AFFAIRS', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) ||
+            ['OVERSEER', 'STUDENT_AFFAIRS', 'ADMIN', 'SUPER_ADMIN'].includes(officerRole);
+
         if (!isAuthorized) {
+            console.warn(`[Download-NYSC] Unauthorized access attempt by user ${user?.email} with role ${userRole}/${officerRole}`);
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 

@@ -1,59 +1,66 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { verifyTokenEdge as verifyToken } from './lib/auth-edge';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { verifyTokenEdge as verifyToken } from "./lib/auth-edge";
 
 // CoreEKSU base URL for redirects
-const COREEKSU_LOGIN_URL = 'https://coreeksu.vercel.app/login';
+const COREEKSU_LOGIN_URL = "https://coreeksu.vercel.app/login";
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ['/', '/api/auth/verify', '/api/auth/logout'];
+const PUBLIC_ROUTES = ["/", "/api/auth/verify", "/api/auth/logout"];
 
 // Routes that require authentication
 const PROTECTED_ROUTE_PREFIXES = [
-  '/student',
-  '/officer',
-  '/admin',
-  '/api/student',
-  '/api/officer',
-  '/api/admin',
-  '/api/clearance',
-  '/api/notifications',
+  "/student",
+  "/officer",
+  "/admin",
+  "/api/student",
+  "/api/officer",
+  "/api/admin",
+  "/api/clearance",
+  "/api/notifications",
 ];
 
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // Debug logging for cookie issues
-  const cookieNames = Array.from(request.cookies.getAll()).map(c => c.name);
-  if (pathname.includes('dashboard')) {
-    console.log(`[Middleware] Path: ${pathname}, Cookies: ${cookieNames.join(', ') || 'NONE'}`);
+  const cookieNames = Array.from(request.cookies.getAll()).map((c) => c.name);
+  if (pathname.includes("dashboard")) {
+    console.log(
+      `[Middleware] Path: ${pathname}, Cookies: ${cookieNames.join(", ") || "NONE"}`,
+    );
   }
 
   // Get token from URL or cookies
-  const tokenFromUrl = searchParams.get('token');
+  const tokenFromUrl = searchParams.get("token");
   // Support both auth_token and token for compatibility
-  const tokenFromCookie = request.cookies.get('auth_token')?.value || request.cookies.get('token')?.value;
+  const tokenFromCookie =
+    request.cookies.get("auth_token")?.value ||
+    request.cookies.get("token")?.value;
 
   // Also check for userId from CoreEKSU
-  const userIdFromUrl = searchParams.get('userId');
+  const userIdFromUrl = searchParams.get("userId");
 
   // ============================================
   // STEP 1: Handle new reference-based auth flow (from CoreEKSU redirect)
   // ============================================
-  const referenceFromUrl = searchParams.get('ref');
-  const isAuthCallback = pathname.startsWith('/api/auth/callback') || pathname === '/auth/bridge';
+  const referenceFromUrl = searchParams.get("ref");
+  const isAuthCallback =
+    pathname.startsWith("/api/auth/callback") || pathname === "/auth/bridge";
 
   if (referenceFromUrl && !isAuthCallback) {
-    console.log('[Middleware] Detected reference-based auth, redirecting to bridge handler...');
+    console.log(
+      "[Middleware] Detected reference-based auth, redirecting to bridge handler...",
+    );
 
     // Redirect to the auth bridge page which will handle verification client-side
     // Preserve any returnUrl parameter
-    const callbackUrl = new URL('/auth/bridge', request.url);
-    callbackUrl.searchParams.set('ref', referenceFromUrl);
+    const callbackUrl = new URL("/auth/bridge", request.url);
+    callbackUrl.searchParams.set("ref", referenceFromUrl);
 
-    const returnUrl = searchParams.get('returnUrl');
-    if (returnUrl && returnUrl.startsWith('/')) {
-      callbackUrl.searchParams.set('returnUrl', returnUrl);
+    const returnUrl = searchParams.get("returnUrl");
+    if (returnUrl && returnUrl.startsWith("/")) {
+      callbackUrl.searchParams.set("returnUrl", returnUrl);
     }
 
     return NextResponse.redirect(callbackUrl);
@@ -63,37 +70,61 @@ export async function middleware(request: NextRequest) {
   // STEP 2: Handle legacy token in URL (DEPRECATED - for backward compatibility)
   // ============================================
   if (tokenFromUrl) {
-    console.log('[Middleware] Processing legacy token from URL (DEPRECATED)...');
+    console.log(
+      "[Middleware] Processing legacy token from URL (DEPRECATED)...",
+    );
 
     const payload = await verifyToken(tokenFromUrl);
 
     if (!payload) {
-      console.log('[Middleware] Invalid token, redirecting to home');
-      return NextResponse.redirect(new URL('/', request.url));
+      console.log("[Middleware] Invalid token, redirecting to home");
+      return NextResponse.redirect(new URL("/", request.url));
     }
 
-    console.log('[Middleware] Token verified for:', payload.email, 'role:', payload.role);
+    console.log(
+      "[Middleware] Token verified for:",
+      payload.email,
+      "role:",
+      payload.role,
+    );
 
     // Determine redirect URL based on role
-    let redirectUrl = '/';
-    const userRole = (payload.role || '').toUpperCase();
-    const officeRole = (payload.officeRole || '').toUpperCase();
+    let redirectUrl = "/";
+    const userRole = (payload.role || "").toUpperCase();
+    const officeRole = (payload.officeRole || "").toUpperCase();
 
-    if (userRole === 'STUDENT') {
-      redirectUrl = '/student/dashboard';
-    } else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) {
-      redirectUrl = '/officer/oversight';
-    } else if (userRole === 'OFFICER' || ['ADVANCEMENT_LINKAGES', 'HOD', 'FACULTY_OFFICER', 'BURSAR', 'LIBRARY', 'EXAMS_TRANSCRIPT', 'SPORTS', 'ALUMNI', 'AUDIT', 'SECURITY'].includes(officeRole)) {
-      redirectUrl = '/officer/dashboard';
-    } else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
-      redirectUrl = '/admin/dashboard';
+    if (userRole === "STUDENT") {
+      redirectUrl = "/student/dashboard";
+    } else if (["OVERSEER", "STUDENT_AFFAIRS"].includes(officeRole)) {
+      redirectUrl = "/officer/oversight";
+    } else if (
+      userRole === "OFFICER" ||
+      [
+        "ADVANCEMENT_LINKAGES",
+        "HOD",
+        "FACULTY_OFFICER",
+        "BURSAR",
+        "LIBRARY",
+        "EXAMS_TRANSCRIPT",
+        "SPORTS",
+        "ALUMNI",
+        "AUDIT",
+        "SECURITY",
+      ].includes(officeRole)
+    ) {
+      redirectUrl = "/officer/dashboard";
+    } else if (["ADMIN", "SUPER_ADMIN"].includes(userRole)) {
+      redirectUrl = "/admin/dashboard";
     } else if (userRole === " ") {
-      redirectUrl = 'https://eksucore.vercel.app/'
+      redirectUrl = "https://eksucore.vercel.app/";
+    } else if (userRole === "OFFICER") {
+      // Fallback for officers without a specific officeRole
+      redirectUrl = "/officer/dashboard";
     }
 
     // Check if there's a custom return URL
-    const returnUrl = searchParams.get('returnUrl');
-    if (returnUrl && returnUrl.startsWith('/')) {
+    const returnUrl = searchParams.get("returnUrl");
+    if (returnUrl && returnUrl.startsWith("/")) {
       redirectUrl = returnUrl;
     }
 
@@ -101,33 +132,36 @@ export async function middleware(request: NextRequest) {
 
     // Set HttpOnly cookie for future requests
     // Allow insecure cookies on localhost even in production mode
-    const isLocalhost = request.url.includes('localhost') || request.url.includes('127.0.0.1');
-    const isSecure = process.env.NODE_ENV === 'production' && !isLocalhost;
+    const isLocalhost =
+      request.url.includes("localhost") || request.url.includes("127.0.0.1");
+    const isSecure = process.env.NODE_ENV === "production" && !isLocalhost;
 
     // Set both for migration/compatibility
     const cookieOptions = {
       httpOnly: true,
       secure: isSecure,
-      sameSite: 'lax' as const,
+      sameSite: "lax" as const,
       maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
+      path: "/",
     };
 
-    response.cookies.set('auth_token', tokenFromUrl, cookieOptions);
-    response.cookies.set('token', tokenFromUrl, cookieOptions);
+    response.cookies.set("auth_token", tokenFromUrl, cookieOptions);
+    response.cookies.set("token", tokenFromUrl, cookieOptions);
 
     // Also store userId in a readable cookie if available from payload
     if (payload.userId) {
-      response.cookies.set('userId', payload.userId, {
+      response.cookies.set("userId", payload.userId, {
         httpOnly: false, // Allow client-side access
         secure: isSecure,
-        sameSite: 'lax' as const,
+        sameSite: "lax" as const,
         maxAge: 60 * 60 * 24 * 7,
-        path: '/',
+        path: "/",
       });
     }
 
-    console.log(`[Middleware] Auth success: ${payload.email} (${payload.role}), storage set, redirecting to: ${redirectUrl}`);
+    console.log(
+      `[Middleware] Auth success: ${payload.email} (${payload.role}), storage set, redirecting to: ${redirectUrl}`,
+    );
     return response;
   }
 
@@ -135,24 +169,27 @@ export async function middleware(request: NextRequest) {
   // STEP 2: Handle userId in URL (alternative CoreEKSU flow)
   // ============================================
   if (userIdFromUrl && !tokenFromCookie) {
-    console.log('[Middleware] userId in URL but no token cookie - storing userId');
+    console.log(
+      "[Middleware] userId in URL but no token cookie - storing userId",
+    );
 
     // Build a clean URL without the userId
     const cleanUrl = new URL(request.url);
-    cleanUrl.searchParams.delete('userId');
+    cleanUrl.searchParams.delete("userId");
 
     const response = NextResponse.redirect(cleanUrl);
 
     // Store userId in readable cookie
-    const isLocalhost = request.url.includes('localhost') || request.url.includes('127.0.0.1');
-    const isSecure = process.env.NODE_ENV === 'production' && !isLocalhost;
+    const isLocalhost =
+      request.url.includes("localhost") || request.url.includes("127.0.0.1");
+    const isSecure = process.env.NODE_ENV === "production" && !isLocalhost;
 
-    response.cookies.set('userId', userIdFromUrl, {
+    response.cookies.set("userId", userIdFromUrl, {
       httpOnly: false,
       secure: isSecure,
-      sameSite: 'lax',
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
-      path: '/',
+      path: "/",
     });
 
     return response;
@@ -161,95 +198,142 @@ export async function middleware(request: NextRequest) {
   // ============================================
   // STEP 3: Check if route is protected and user is authenticated
   // ============================================
-  const isProtectedRoute = PROTECTED_ROUTE_PREFIXES.some(prefix =>
-    pathname.startsWith(prefix)
+  const isProtectedRoute = PROTECTED_ROUTE_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
   );
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+
+  // REDIRECT AUTHENTICATED USERS FROM ROOT TO DASHBOARD
+  if (pathname === "/" && tokenFromCookie) {
+    const payload = await verifyToken(tokenFromCookie);
+    if (payload) {
+      const userRole = (payload.role || "").toUpperCase();
+      const officeRole = (payload.officeRole || "").toUpperCase();
+      let dashboardUrl = "/";
+      if (userRole === "STUDENT") dashboardUrl = "/student/dashboard";
+      else if (["OVERSEER", "STUDENT_AFFAIRS"].includes(officeRole))
+        dashboardUrl = "/officer/oversight";
+      else if (
+        userRole === "OFFICER" ||
+        [
+          "ADVANCEMENT_LINKAGES",
+          "HOD",
+          "FACULTY_OFFICER",
+          "BURSAR",
+          "LIBRARY",
+          "EXAMS_TRANSCRIPT",
+          "SPORTS",
+          "ALUMNI",
+          "AUDIT",
+          "SECURITY",
+        ].includes(officeRole)
+      )
+        dashboardUrl = "/officer/dashboard";
+      else if (["ADMIN", "SUPER_ADMIN"].includes(userRole))
+        dashboardUrl = "/admin/dashboard";
+
+      if (dashboardUrl !== "/") {
+        return NextResponse.redirect(new URL(dashboardUrl, request.url));
+      }
+    }
+  }
 
   if (isProtectedRoute && !isPublicRoute) {
     // Check for valid auth cookie
     if (!tokenFromCookie) {
-      console.log('[Middleware] No auth cookie for protected route:', pathname);
+      console.log("[Middleware] No auth cookie for protected route:", pathname);
 
       // For API routes, return 401
-      if (pathname.startsWith('/api/')) {
+      if (pathname.startsWith("/api/")) {
         return NextResponse.json(
-          { error: 'Unauthorized - No authentication token' },
-          { status: 401 }
+          { error: "Unauthorized - No authentication token" },
+          { status: 401 },
         );
       }
 
       // For page routes, redirect to home (or CoreEKSU login)
       // You can change this to redirect to COREEKSU_LOGIN_URL if preferred
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-
-    // REDIRECT AUTHENTICATED USERS FROM ROOT TO DASHBOARD
-    if (pathname === '/') {
-      const payload = await verifyToken(tokenFromCookie);
-      if (payload) {
-        const userRole = (payload.role || '').toUpperCase();
-        const officeRole = (payload.officeRole || '').toUpperCase();
-        let dashboardUrl = '/';
-        if (userRole === 'STUDENT') dashboardUrl = '/student/dashboard';
-        else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) dashboardUrl = '/officer/oversight';
-        else if (userRole === 'OFFICER' || ['ADVANCEMENT_LINKAGES', 'HOD', 'FACULTY_OFFICER', 'BURSAR', 'LIBRARY', 'EXAMS_TRANSCRIPT', 'SPORTS', 'ALUMNI', 'AUDIT', 'SECURITY'].includes(officeRole)) dashboardUrl = '/officer/dashboard';
-        else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) dashboardUrl = '/admin/dashboard';
-
-        if (dashboardUrl !== '/') {
-          return NextResponse.redirect(new URL(dashboardUrl, request.url));
-        }
-      }
+      return NextResponse.redirect(
+        new URL("https://eksucore.vercel.app/login", request.url),
+      );
     }
 
     // Verify the token is still valid
     const payload = await verifyToken(tokenFromCookie);
     if (!payload) {
-      console.log('[Middleware] Invalid/expired token for:', pathname);
+      console.log("[Middleware] Invalid/expired token for:", pathname);
 
       // Clear the invalid cookie
-      const response = pathname.startsWith('/api/')
-        ? NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 })
-        : NextResponse.redirect(new URL('/', request.url));
+      const response = pathname.startsWith("/api/")
+        ? NextResponse.json(
+            { error: "Unauthorized - Invalid token" },
+            { status: 401 },
+          )
+        : NextResponse.redirect(new URL("/", request.url));
 
-      response.cookies.delete('auth_token');
-      response.cookies.delete('token');
-      response.cookies.delete('userId');
+      response.cookies.delete("auth_token");
+      response.cookies.delete("token");
+      response.cookies.delete("userId");
       return response;
     }
 
     // Check role-based access
     const roleChecks = {
-      '/student': ['STUDENT'],
-      '/officer': ['OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'],
-      '/admin': ['ADMIN', 'SUPER_ADMIN'],
-      '/api/student': ['STUDENT'],
-      '/api/officer': ['OFFICER', 'OVERSEER', 'STUDENT_AFFAIRS'],
-      '/api/admin': ['ADMIN', 'SUPER_ADMIN'],
+      "/student": ["STUDENT"],
+      "/officer": ["OFFICER", "OVERSEER", "STUDENT_AFFAIRS"],
+      "/admin": ["ADMIN", "SUPER_ADMIN"],
+      "/api/student": ["STUDENT"],
+      "/api/officer": ["OFFICER", "OVERSEER", "STUDENT_AFFAIRS"],
+      "/api/admin": ["ADMIN", "SUPER_ADMIN"],
     };
 
-    const userRole = (payload.role || '').toUpperCase();
-    const officeRole = (payload.officeRole || '').toUpperCase();
+    const userRole = (payload.role || "").toUpperCase();
+    const officeRole = (payload.officeRole || "").toUpperCase();
 
     for (const [prefix, allowedRoles] of Object.entries(roleChecks)) {
       if (pathname.startsWith(prefix)) {
         // SUPER_ADMIN can access everything
-        if (userRole !== 'SUPER_ADMIN' && !allowedRoles.includes(userRole) && !allowedRoles.includes(officeRole)) {
-          console.log(`[Middleware] Role mismatch: ${userRole}/${officeRole} tried to access ${pathname}`);
+        if (
+          userRole !== "SUPER_ADMIN" &&
+          !allowedRoles.includes(userRole) &&
+          !allowedRoles.includes(officeRole)
+        ) {
+          console.log(
+            `[Middleware] Role mismatch: ${userRole}/${officeRole} tried to access ${pathname}`,
+          );
 
-          if (pathname.startsWith('/api/')) {
+          if (pathname.startsWith("/api/")) {
             return NextResponse.json(
-              { error: `Forbidden - Requires role: ${allowedRoles.join(' or ')}` },
-              { status: 403 }
+              {
+                error: `Forbidden - Requires role: ${allowedRoles.join(" or ")}`,
+              },
+              { status: 403 },
             );
           }
 
           // Redirect to their appropriate dashboard
-          let correctDashboard = '/';
-          if (userRole === 'STUDENT') correctDashboard = '/student/dashboard';
-          else if (['OVERSEER', 'STUDENT_AFFAIRS'].includes(officeRole)) correctDashboard = '/officer/oversight';
-          else if (userRole === 'OFFICER' || ['ADVANCEMENT_LINKAGES', 'HOD', 'FACULTY_OFFICER', 'BURSAR', 'LIBRARY', 'EXAMS_TRANSCRIPT', 'SPORTS', 'ALUMNI', 'AUDIT', 'SECURITY'].includes(officeRole)) correctDashboard = '/officer/dashboard';
-          else if (['ADMIN', 'SUPER_ADMIN'].includes(userRole)) correctDashboard = '/admin/dashboard';
+          let correctDashboard = "/";
+          if (userRole === "STUDENT") correctDashboard = "/student/dashboard";
+          else if (["OVERSEER", "STUDENT_AFFAIRS"].includes(officeRole))
+            correctDashboard = "/officer/oversight";
+          else if (
+            userRole === "OFFICER" ||
+            [
+              "ADVANCEMENT_LINKAGES",
+              "HOD",
+              "FACULTY_OFFICER",
+              "BURSAR",
+              "LIBRARY",
+              "EXAMS_TRANSCRIPT",
+              "SPORTS",
+              "ALUMNI",
+              "AUDIT",
+              "SECURITY",
+            ].includes(officeRole)
+          )
+            correctDashboard = "/officer/dashboard";
+          else if (["ADMIN", "SUPER_ADMIN"].includes(userRole))
+            correctDashboard = "/admin/dashboard";
 
           return NextResponse.redirect(new URL(correctDashboard, request.url));
         }
@@ -273,6 +357,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

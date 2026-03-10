@@ -387,9 +387,9 @@ export default function OversightDashboard() {
                                         <td className="px-6 py-5 whitespace-nowrap min-w-[200px]">
                                             <div className="flex flex-col space-y-1.5">
                                                 <div className="flex justify-between items-end">
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${r.isFullyCompleted ? 'text-emerald-600' : 'text-blue-600'}`}>
+                                                    {/* <span className={`text-[10px] font-black uppercase tracking-widest ${r.isFullyCompleted ? 'text-emerald-600' : 'text-blue-600'}`}>
                                                         Step {r.currentStep} of {r.totalSteps}
-                                                    </span>
+                                                    </span> */}
                                                     <span className="text-[10px] font-black text-slate-400">
                                                         {calculateProgress(r.completedSteps, r.totalSteps)}%
                                                     </span>

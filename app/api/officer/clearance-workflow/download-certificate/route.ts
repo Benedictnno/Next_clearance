@@ -7,9 +7,16 @@ export async function GET(request: NextRequest) {
     try {
         const user = await getCurrentUser();
 
-        // Auth check: Only Oversight/Admin roles
-        const isAuthorized = ['OVERSEER', 'STUDENT_AFFAIRS', 'ADMIN', 'SUPER_ADMIN'].includes(user?.role || '');
+        // Auth check: Only Oversight/Admin/Student Affairs roles
+        // We check both the base user role and the officer-specific role
+        const userRole = user?.role || '';
+        const officerRole = user?.officer?.role || '';
+        const isAuthorized = 
+            ['OVERSEER', 'STUDENT_AFFAIRS', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) ||
+            ['OVERSEER', 'STUDENT_AFFAIRS', 'ADMIN', 'SUPER_ADMIN'].includes(officerRole);
+
         if (!isAuthorized) {
+            console.warn(`[Download-Certificate] Unauthorized access attempt by user ${user?.email} with role ${userRole}/${officerRole}`);
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
